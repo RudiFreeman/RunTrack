@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useRunTimer } from '../hooks/useRunTimer';
+import { useGPSTracker } from '../hooks/useGPSTracker';
 import { StartButton } from './StartButton';
 import { StatCard } from './StatCard';
 import {
@@ -15,64 +17,93 @@ import {
   formatPace,
 } from '../services/locationService';
 
-// Simulated distance growth while running (demo mode without GPS)
-function useDemoDistance(elapsed: number, isRunning: boolean) {
-  // Average ~10 km/h => ~2.78 m/s
-  const speed = 2.78;
-  return isRunning ? Math.round(elapsed * speed) : 0;
-}
-
 export function HomeScreen() {
   const { status, elapsed, start, pause, resume, stop, reset } = useRunTimer();
+  const gps = useGPSTracker(elapsed);
+
   const isRunning = status === 'running';
   const isActive = status === 'running' || status === 'paused';
 
-  const distance = useDemoDistance(elapsed, isRunning);
-  const pace =
-    elapsed > 0 && distance > 0 ? (elapsed / (distance / 1000)) : 0;
+  // ─── Обработчики кнопок ────────────────────────────────────────────────────
+
+  const handleStart = useCallback(async () => {
+    start();
+    await gps.startTracking();
+  }, [start, gps]);
+
+  const handlePause = useCallback(() => {
+    pause();
+    gps.pauseTracking();
+  }, [pause, gps]);
+
+  const handleResume = useCallback(async () => {
+    resume();
+    await gps.resumeTracking();
+  }, [resume, gps]);
+
+  const handleStop = useCallback(() => {
+    const finalCoords = gps.stopTracking();
+    stop();
+
+    // Показываем итоги пробежки
+    const distStr = formatDistance(gps.distance);
+    const paceStr = formatPace(gps.averagePace);
+    const timeStr = formatDuration(elapsed);
+
+    Alert.alert(
+      'Пробежка завершена!',
+      `Время: ${timeStr}\nДистанция: ${distStr}\nСредний темп: ${paceStr}\nТочек GPS: ${finalCoords.length}`,
+      [{ text: 'OK', onPress: () => { gps.reset(); reset(); } }],
+    );
+  }, [gps, stop, reset, elapsed]);
+
+  // ─── Данные для отображения ───────────────────────────────────────────────
+
+  // Показываем текущий темп во время бега, средний — на паузе/после
+  const displayPace = isRunning && gps.currentPace > 0
+    ? gps.currentPace
+    : gps.averagePace;
+
+  const statusText =
+    status === 'idle'    ? 'Готов к пробежке' :
+    status === 'running' ? 'Бегу...' :
+    status === 'paused'  ? 'На паузе' :
+                           'Пробежка завершена';
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        {/* Header */}
+        {/* Заголовок */}
         <Text style={styles.appName}>RunTrack</Text>
-        <Text style={styles.subtitle}>
-          {status === 'idle'
-            ? 'Готов к пробежке'
-            : status === 'running'
-            ? 'Бегу...'
-            : status === 'paused'
-            ? 'На паузе'
-            : 'Пробежка завершена'}
-        </Text>
+        <Text style={styles.subtitle}>{statusText}</Text>
 
-        {/* Timer */}
+        {/* Таймер */}
         <View style={styles.timerBlock}>
           <Text style={styles.timer}>{formatDuration(elapsed)}</Text>
           <Text style={styles.timerLabel}>ВРЕМЯ</Text>
         </View>
 
-        {/* Stats row */}
+        {/* Статистика */}
         <View style={styles.statsRow}>
-          <StatCard label="ДИСТАНЦИЯ" value={formatDistance(distance)} />
-          <StatCard label="ТЕМП" value={formatPace(pace)} />
+          <StatCard label="ДИСТАНЦИЯ" value={formatDistance(gps.distance)} />
+          <StatCard label="ТЕМП" value={formatPace(displayPace)} />
         </View>
 
-        {/* Main action button */}
+        {/* Главная кнопка */}
         <View style={styles.buttonArea}>
           <StartButton
             status={status}
-            onStart={start}
-            onPause={pause}
-            onResume={resume}
+            onStart={handleStart}
+            onPause={handlePause}
+            onResume={handleResume}
           />
         </View>
 
-        {/* Stop button (only when active) */}
+        {/* Кнопка ЗАВЕРШИТЬ (только во время активной пробежки) */}
         {isActive && (
           <TouchableOpacity
             style={styles.stopBtn}
-            onPress={() => { stop(); setTimeout(reset, 1500); }}
+            onPress={handleStop}
             activeOpacity={0.7}
           >
             <Text style={styles.stopBtnText}>ЗАВЕРШИТЬ</Text>
