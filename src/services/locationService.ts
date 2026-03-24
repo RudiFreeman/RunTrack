@@ -1,4 +1,4 @@
-import { Coordinate } from '../types';
+import { Coordinate, Split } from '../types';
 
 // ─── Haversine ────────────────────────────────────────────────────────────────
 
@@ -95,4 +95,54 @@ export function formatPace(secondsPerKm: number): string {
   const m = Math.floor(secondsPerKm / 60);
   const s = Math.round(secondsPerKm % 60);
   return `${m}:${String(s).padStart(2, '0')} /км`;
+}
+
+// ─── Сплиты и калории ────────────────────────────────────────────────────────
+
+/**
+ * Разбивает маршрут на сплиты по 1 км.
+ * Последний сплит может быть неполным (< 1 км).
+ */
+export function calculateSplits(coords: Coordinate[]): Split[] {
+  if (coords.length < 2) return [];
+
+  const splits: Split[] = [];
+  let accumulated = 0;      // метры от начала текущего сплита
+  let splitStart = coords[0];
+  let kmCount = 1;
+
+  for (let i = 1; i < coords.length; i++) {
+    const seg = haversine(coords[i - 1], coords[i]);
+    accumulated += seg;
+
+    if (accumulated >= 1000) {
+      const overshot = accumulated - 1000;
+      const segTime = (coords[i].timestamp - splitStart.timestamp) / 1000;
+      // Пропорциональное время для ровно 1 км
+      const kmTime = segTime * ((seg - overshot) / seg);
+      splits.push({ km: kmCount, duration: Math.round(kmTime), pace: Math.round(kmTime) });
+      kmCount++;
+      accumulated = overshot;
+      splitStart = coords[i];
+    }
+  }
+
+  // Остаток (неполный км)
+  if (accumulated > 10 && splits.length > 0) {
+    const lastTime = (coords[coords.length - 1].timestamp - splitStart.timestamp) / 1000;
+    const pace = accumulated > 0 ? lastTime / (accumulated / 1000) : 0;
+    splits.push({ km: kmCount, duration: Math.round(lastTime), pace: Math.round(pace) });
+  }
+
+  return splits;
+}
+
+/**
+ * Примерный расчёт калорий.
+ * Формула: ~1 ккал на кг на км (средняя интенсивность бега).
+ * Вес по умолчанию 70 кг.
+ */
+export function calculateCalories(distanceMeters: number, weightKg = 70): number {
+  const distKm = distanceMeters / 1000;
+  return Math.round(distKm * weightKg * 1.0);
 }
