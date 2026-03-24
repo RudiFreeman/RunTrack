@@ -5,12 +5,13 @@ import {
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useRunTimer } from '../hooks/useRunTimer';
 import { useGPSTracker } from '../hooks/useGPSTracker';
 import { StartButton } from './StartButton';
 import { StatCard } from './StatCard';
+import { HomeNavigationProp } from '../navigation/types';
 import {
   formatDuration,
   formatDistance,
@@ -18,13 +19,14 @@ import {
 } from '../services/locationService';
 
 export function HomeScreen() {
+  const navigation = useNavigation<HomeNavigationProp>();
   const { status, elapsed, start, pause, resume, stop, reset } = useRunTimer();
   const gps = useGPSTracker(elapsed);
 
   const isRunning = status === 'running';
   const isActive = status === 'running' || status === 'paused';
 
-  // ─── Обработчики кнопок ────────────────────────────────────────────────────
+  // ─── Обработчики кнопок ──────────────────────────────────────────────────
 
   const handleStart = useCallback(async () => {
     start();
@@ -43,23 +45,25 @@ export function HomeScreen() {
 
   const handleStop = useCallback(() => {
     const finalCoords = gps.stopTracking();
+    const finalDistance = gps.distance;
+    const finalAvgPace = gps.averagePace;
+    const finalElapsed = elapsed;
+
     stop();
+    reset();
+    gps.reset();
 
-    // Показываем итоги пробежки
-    const distStr = formatDistance(gps.distance);
-    const paceStr = formatPace(gps.averagePace);
-    const timeStr = formatDuration(elapsed);
+    navigation.navigate('Summary', {
+      coordinates: finalCoords,
+      duration: finalElapsed,
+      distance: finalDistance,
+      avgPace: finalAvgPace,
+    });
+  }, [gps, stop, reset, elapsed, navigation]);
 
-    Alert.alert(
-      'Пробежка завершена!',
-      `Время: ${timeStr}\nДистанция: ${distStr}\nСредний темп: ${paceStr}\nТочек GPS: ${finalCoords.length}`,
-      [{ text: 'OK', onPress: () => { gps.reset(); reset(); } }],
-    );
-  }, [gps, stop, reset, elapsed]);
+  // ─── Отображаемые данные ─────────────────────────────────────────────────
 
-  // ─── Данные для отображения ───────────────────────────────────────────────
-
-  // Показываем текущий темп во время бега, средний — на паузе/после
+  // Во время бега — текущий темп, на паузе — средний
   const displayPace = isRunning && gps.currentPace > 0
     ? gps.currentPace
     : gps.averagePace;
