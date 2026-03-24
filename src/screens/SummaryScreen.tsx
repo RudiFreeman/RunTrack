@@ -49,14 +49,35 @@ function SplitRow({ split, isLast }: { split: Split; isLast: boolean }) {
 export function SummaryScreen() {
   const route = useRoute<SummaryRouteProp>();
   const navigation = useNavigation<SummaryNavigationProp>();
-  const { coordinates, duration, distance, avgPace } = route.params;
+  const {
+    coordinates,
+    duration,
+    distance,
+    avgPace,
+    viewOnly = false,
+    runDate,
+    splits: savedSplits,
+    calories: savedCalories,
+  } = route.params;
 
   const [saving, setSaving] = useState(false);
 
-  const splits = useMemo(() => calculateSplits(coordinates), [coordinates]);
-  const calories = useMemo(() => calculateCalories(distance), [distance]);
+  // Используем готовые данные из истории или вычисляем на месте
+  const splits = useMemo(
+    () => savedSplits ?? calculateSplits(coordinates),
+    [savedSplits, coordinates],
+  );
+  const calories = useMemo(
+    () => savedCalories ?? calculateCalories(distance),
+    [savedCalories, distance],
+  );
 
-  // Центр карты — середина маршрута
+  const displayDate = useMemo(() => {
+    const d = new Date(runDate ?? Date.now());
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  }, [runDate]);
+
+  // Центр карты — по bbox координат
   const mapRegion = useMemo(() => {
     if (coordinates.length === 0) return null;
     const lats = coordinates.map((c) => c.latitude);
@@ -90,7 +111,7 @@ export function SummaryScreen() {
       };
       await saveRun(run);
       Alert.alert('Сохранено', 'Пробежка сохранена!', [
-        { text: 'OK', onPress: () => navigation.navigate('Home') },
+        { text: 'OK', onPress: () => navigation.navigate('Tabs') },
       ]);
     } catch {
       Alert.alert('Ошибка', 'Не удалось сохранить пробежку.');
@@ -121,15 +142,18 @@ export function SummaryScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Кнопка назад (только в режиме просмотра) */}
+        {viewOnly && (
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.backBtnText}>← Назад</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Заголовок */}
-        <Text style={styles.title}>Пробежка завершена</Text>
-        <Text style={styles.subtitle}>
-          {new Date().toLocaleDateString('ru-RU', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          })}
+        <Text style={styles.title}>
+          {viewOnly ? 'Пробежка' : 'Пробежка завершена'}
         </Text>
+        <Text style={styles.subtitle}>{displayDate}</Text>
 
         {/* Карта маршрута */}
         <View style={styles.mapContainer}>
@@ -182,47 +206,59 @@ export function SummaryScreen() {
               <Text style={styles.splitsHeaderText}>ВРЕМЯ</Text>
             </View>
             {splits.map((split, i) => (
-              <SplitRow
-                key={split.km}
-                split={split}
-                isLast={i === splits.length - 1}
-              />
+              <SplitRow key={split.km} split={split} isLast={i === splits.length - 1} />
             ))}
           </View>
         )}
 
-        {/* Кнопки */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.btnSave}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving ? (
-              <ActivityIndicator color="#0D0D0D" />
-            ) : (
-              <Text style={styles.btnSaveText}>Сохранить</Text>
-            )}
-          </TouchableOpacity>
+        {/* Кнопки — только в режиме записи нового забега */}
+        {!viewOnly && (
+          <>
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.btnSave}
+                onPress={handleSave}
+                disabled={saving}
+                activeOpacity={0.8}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#0D0D0D" />
+                ) : (
+                  <Text style={styles.btnSaveText}>Сохранить</Text>
+                )}
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.btnShare}
-            onPress={handleShare}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.btnShareText}>Поделиться</Text>
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity
+                style={styles.btnShare}
+                onPress={handleShare}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.btnShareText}>Поделиться</Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Вернуться без сохранения */}
-        <TouchableOpacity
-          style={styles.btnDiscard}
-          onPress={() => navigation.navigate('Home')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.btnDiscardText}>Не сохранять</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.btnDiscard}
+              onPress={() => navigation.navigate('Tabs')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.btnDiscardText}>Не сохранять</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* В режиме просмотра — только Поделиться */}
+        {viewOnly && (
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.btnShare, styles.btnShareFull]}
+              onPress={handleShare}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnShareText}>Поделиться</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -242,6 +278,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 40,
+  },
+
+  // Навигация назад
+  backBtn: {
+    marginBottom: 8,
+  },
+  backBtnText: {
+    color: '#00E5A0',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // Заголовок
@@ -396,6 +442,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  btnShareFull: {
+    flex: 1,
   },
   btnShareText: {
     color: '#FFFFFF',

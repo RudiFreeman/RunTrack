@@ -8,18 +8,18 @@ export interface Coordinate {
 
 /** Сплит — итоги одного километра */
 export interface Split {
-  km: number;         // порядковый номер км (1, 2, 3…)
-  duration: number;   // секунды на этот км
-  pace: number;       // секунды/км
+  km: number;        // порядковый номер км (1, 2, 3…)
+  duration: number;  // секунды на этот км
+  pace: number;      // секунды/км
 }
 
 /** Полная запись одного забега (хранится в AsyncStorage) */
 export interface SavedRun {
   id: string;
-  date: string;           // ISO string
-  distance: number;       // метры
-  duration: number;       // секунды
-  avgPace: number;        // секунды/км
+  date: string;          // ISO string
+  distance: number;      // метры
+  duration: number;      // секунды
+  avgPace: number;       // секунды/км
   calories: number;
   splits: Split[];
   coordinates: Coordinate[];
@@ -42,10 +42,18 @@ export interface RunStats {
   bestPace: number;
 }
 
-/** Параметры, передаваемые на экран итогов */
+/** Параметры экрана итогов */
 export interface SummaryParams {
   coordinates: Coordinate[];
-  duration: number;   // секунды
-  distance: number;   // метры
-  avgPace: number;    // секунды/км
+  duration: number;    // секунды
+  distance: number;    // метры
+  avgPace: number;     // секунды/км
+  /** Режим просмотра из истории — скрывает кнопку «Сохранить» */
+  viewOnly?: boolean;
+  /** Дата для отображения (ISO string) — передаётся из истории */
+  runDate?: string;
+  /** Готовые сплиты — передаются из истории, чтобы не пересчитывать */
+  splits?: Split[];
+  /** Готовые калории — передаются из истории */
+  calories?: number;
 }
