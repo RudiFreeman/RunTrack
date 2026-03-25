@@ -7,6 +7,7 @@ import { Text } from 'react-native';
 import { HomeScreen } from './src/components/HomeScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
+import { StatsScreen } from './src/screens/StatsScreen';
 import { RootStackParamList, TabParamList } from './src/navigation/types';
 
 // ─── Иконки вкладок ───────────────────────────────────────────────────────────
@@ -57,6 +58,14 @@ function TabNavigator() {
         options={{
           tabBarLabel: 'История',
           tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Stats"
+        component={StatsScreen}
+        options={{
+          tabBarLabel: 'Статистика',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="📈" focused={focused} />,
         }}
       />
     </Tab.Navigator>
