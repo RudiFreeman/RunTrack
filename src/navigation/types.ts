@@ -17,7 +17,7 @@ export type RootStackParamList = {
   /** Экран ввода номера телефона */
   Auth: undefined;
   /** Экран подтверждения OTP-кода */
-  OTPVerify: { phone: string };
+  OTPVerify: { contact: string }; // email
   /** Основные табы приложения */
   MainTabs: undefined;
   /** Экран итогов забега (поверх табов) */

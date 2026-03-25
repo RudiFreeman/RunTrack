@@ -4,34 +4,37 @@ import { supabase } from '../config/supabase';
 /** Данные авторизованного пользователя */
 export interface AuthUser {
   id: string;
-  phone: string;
+  email: string;
 }
 
 export const authService = {
   /**
-   * Шаг 1: Отправить OTP-код на номер телефона.
-   * Формат телефона: +79991234567 (международный, с +)
+   * Шаг 1: Отправить OTP-код на email.
+   *
+   * В Supabase Dashboard нужно включить Email OTP:
+   * Authentication → Providers → Email → выключи "Confirm email",
+   * включи "Email OTP" (или оставь magic link — тогда пользователь
+   * нажимает ссылку в письме вместо ввода кода).
    */
-  async sendOTP(phone: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithOtp({ phone });
+  async sendOTP(email: string): Promise<void> {
+    const { error } = await supabase.auth.signInWithOtp({ email });
     if (error) throw new Error(error.message);
   },
 
   /**
-   * Шаг 2: Подтвердить OTP-код, полученный по SMS.
-   * Возвращает данные пользователя при успехе.
+   * Шаг 2: Подтвердить OTP-код из письма.
    */
-  async verifyOTP(phone: string, token: string): Promise<AuthUser> {
+  async verifyOTP(email: string, token: string): Promise<AuthUser> {
     const { data, error } = await supabase.auth.verifyOtp({
-      phone,
+      email,
       token,
-      type: 'sms',
+      type: 'email',
     });
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Пользователь не найден');
     return {
       id: data.user.id,
-      phone: data.user.phone ?? phone,
+      email: data.user.email ?? email,
     };
   },
 

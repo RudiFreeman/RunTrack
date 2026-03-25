@@ -1,7 +1,6 @@
 /**
- * AuthScreen — экран ввода номера телефона.
- * Пользователь вводит номер в формате +7XXXXXXXXXX,
- * нажимает «Получить код» — отправляется SMS с OTP.
+ * AuthScreen — экран ввода email для входа.
+ * Supabase отправит письмо с 6-значным кодом или magic link.
  */
 
 import React, { useState } from 'react';
@@ -26,28 +25,20 @@ type Props = {
 };
 
 export default function AuthScreen({ navigation }: Props) {
-  const [phone, setPhone] = useState('+7');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
-  /** Форматировать телефон: оставить только + и цифры */
-  function handlePhoneChange(text: string): void {
-    // Всегда начинается с +7
-    let cleaned = text.replace(/[^+\d]/g, '');
-    if (!cleaned.startsWith('+')) cleaned = '+' + cleaned;
-    setPhone(cleaned);
-  }
-
   async function handleSendOTP(): Promise<void> {
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length < 11) {
-      Alert.alert('Ошибка', 'Введи корректный номер телефона: +7XXXXXXXXXX');
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed.includes('@') || !trimmed.includes('.')) {
+      Alert.alert('Ошибка', 'Введи корректный email');
       return;
     }
 
     setLoading(true);
     try {
-      await authService.sendOTP(phone);
-      navigation.navigate('OTPVerify', { phone });
+      await authService.sendOTP(trimmed);
+      navigation.navigate('OTPVerify', { contact: trimmed });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       Alert.alert('Ошибка отправки', message);
@@ -64,24 +55,26 @@ export default function AuthScreen({ navigation }: Props) {
       >
         {/* Заголовок */}
         <View style={styles.header}>
-          <Text style={styles.logo}>🏃 RunTrack</Text>
+          <Text style={styles.logo}>🏃</Text>
+          <Text style={styles.appName}>RunTrack</Text>
           <Text style={styles.title}>Вход в аккаунт</Text>
           <Text style={styles.subtitle}>
-            Введи номер телефона — пришлём SMS с кодом подтверждения
+            Введи email — пришлём письмо с кодом подтверждения
           </Text>
         </View>
 
         {/* Поле ввода */}
         <View style={styles.form}>
-          <Text style={styles.label}>Номер телефона</Text>
+          <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
-            value={phone}
-            onChangeText={handlePhoneChange}
-            keyboardType="phone-pad"
-            placeholder="+79991234567"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="you@example.com"
             placeholderTextColor="#555555"
-            maxLength={12}
             autoFocus
           />
 
@@ -100,11 +93,11 @@ export default function AuthScreen({ navigation }: Props) {
 
         {/* Примечание */}
         <Text style={styles.note}>
-          Авторизуясь, ты соглашаешься с хранением данных в защищённом облаке.
+          Вход синхронизирует пробежки между устройствами.{'\n'}
           Приложение работает и без входа — данные хранятся локально.
         </Text>
 
-        {/* Пропустить — войти офлайн */}
+        {/* Пропустить */}
         <TouchableOpacity
           style={styles.skipButton}
           onPress={() => navigation.navigate('MainTabs')}
@@ -131,14 +124,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    fontSize: 40,
-    marginBottom: 16,
+    fontSize: 48,
+    marginBottom: 8,
   },
-  title: {
+  appName: {
     fontSize: 28,
     fontWeight: 'bold',
+    color: '#00E5A0',
+    letterSpacing: 2,
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   subtitle: {
     fontSize: 15,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#888888',
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -161,9 +161,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    fontSize: 22,
+    fontSize: 18,
     color: '#FFFFFF',
-    letterSpacing: 2,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#2A2A2A',

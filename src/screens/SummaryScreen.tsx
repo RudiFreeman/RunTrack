@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polyline } from 'react-native-maps';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { SummaryRouteProp, SummaryNavigationProp } from '../navigation/types';
 import { SavedRun, Split } from '../types';
 import {
@@ -22,6 +23,7 @@ import {
   calculateCalories,
 } from '../services/locationService';
 import { saveRun } from '../services/storageService';
+import ShareCard from '../components/ShareCard';
 
 // ─── Вспомогательные компоненты ──────────────────────────────────────────────
 
@@ -61,8 +63,11 @@ export function SummaryScreen() {
   } = route.params;
 
   const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
-  // Используем готовые данные из истории или вычисляем на месте
+  // ref на ShareCard для захвата скриншота
+  const shareCardRef = useRef<View>(null);
+
   const splits = useMemo(
     () => savedSplits ?? calculateSplits(coordinates),
     [savedSplits, coordinates],
@@ -77,7 +82,6 @@ export function SummaryScreen() {
     return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
   }, [runDate]);
 
-  // Центр карты — по bbox координат
   const mapRegion = useMemo(() => {
     if (coordinates.length === 0) return null;
     const lats = coordinates.map((c) => c.latitude);
@@ -111,7 +115,7 @@ export function SummaryScreen() {
       };
       await saveRun(run);
       Alert.alert('Сохранено', 'Пробежка сохранена!', [
-        { text: 'OK', onPress: () => navigation.navigate('Tabs') },
+        { text: 'OK', onPress: () => navigation.navigate('MainTabs') },
       ]);
     } catch {
       Alert.alert('Ошибка', 'Не удалось сохранить пробежку.');
@@ -120,29 +124,63 @@ export function SummaryScreen() {
     }
   };
 
-  // ─── Поделиться ──────────────────────────────────────────────────────────────
+  // ─── Шеринг — скриншот ShareCard → нативный диалог ──────────────────────────
 
   const handleShare = async () => {
-    const text =
-      `🏃 Пробежка завершена!\n` +
-      `📏 Дистанция: ${formatDistance(distance)}\n` +
-      `⏱ Время: ${formatDuration(duration)}\n` +
-      `⚡ Темп: ${formatPace(avgPace)}\n` +
-      `🔥 Калории: ${calories} ккал\n\n` +
-      `Записано в RunTrack`;
-    await Share.share({ message: text });
+    if (!shareCardRef.current) return;
+    setSharing(true);
+    try {
+      // Захватываем карточку как PNG
+      const uri = await captureRef(shareCardRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+
+      // Проверяем доступность Sharing (на Expo Go всегда доступен)
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('Шеринг недоступен', 'Функция шеринга недоступна на этом устройстве');
+        return;
+      }
+
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Поделиться пробежкой',
+        UTI: 'public.png', // iOS
+      });
+    } catch (err) {
+      Alert.alert('Ошибка', 'Не удалось создать карточку');
+    } finally {
+      setSharing(false);
+    }
   };
 
   // ─── Рендер ──────────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/*
+        ShareCard рендерится вне экрана (opacity: 0).
+        React Native View Shot захватит её в captureRef().
+      */}
+      <View style={styles.offscreen} pointerEvents="none">
+        <ShareCard
+          ref={shareCardRef}
+          distanceFormatted={formatDistance(distance)}
+          durationFormatted={formatDuration(duration)}
+          paceFormatted={formatPace(avgPace)}
+          calories={calories}
+          date={displayDate}
+        />
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Кнопка назад (только в режиме просмотра) */}
+        {/* Кнопка назад */}
         {viewOnly && (
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backBtnText}>← Назад</Text>
@@ -211,7 +249,7 @@ export function SummaryScreen() {
           </View>
         )}
 
-        {/* Кнопки — только в режиме записи нового забега */}
+        {/* Кнопки */}
         {!viewOnly && (
           <>
             <View style={styles.actions}>
@@ -231,15 +269,20 @@ export function SummaryScreen() {
               <TouchableOpacity
                 style={styles.btnShare}
                 onPress={handleShare}
+                disabled={sharing}
                 activeOpacity={0.8}
               >
-                <Text style={styles.btnShareText}>Поделиться</Text>
+                {sharing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.btnShareText}>Поделиться</Text>
+                )}
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
               style={styles.btnDiscard}
-              onPress={() => navigation.navigate('Tabs')}
+              onPress={() => navigation.navigate('MainTabs')}
               activeOpacity={0.7}
             >
               <Text style={styles.btnDiscardText}>Не сохранять</Text>
@@ -247,15 +290,19 @@ export function SummaryScreen() {
           </>
         )}
 
-        {/* В режиме просмотра — только Поделиться */}
         {viewOnly && (
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.btnShare, styles.btnShareFull]}
               onPress={handleShare}
+              disabled={sharing}
               activeOpacity={0.8}
             >
-              <Text style={styles.btnShareText}>Поделиться</Text>
+              {sharing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.btnShareText}>Поделиться</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -280,17 +327,17 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // Навигация назад
-  backBtn: {
-    marginBottom: 8,
-  },
-  backBtnText: {
-    color: '#00E5A0',
-    fontSize: 14,
-    fontWeight: '600',
+  // Карточка шеринга рендерится вне экрана
+  offscreen: {
+    position: 'absolute',
+    top: 0,
+    left: -400,
+    opacity: 0,
   },
 
-  // Заголовок
+  backBtn: { marginBottom: 8 },
+  backBtnText: { color: '#00E5A0', fontSize: 14, fontWeight: '600' },
+
   title: {
     color: '#00E5A0',
     fontSize: 22,
@@ -306,7 +353,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // Карта
   mapContainer: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -314,22 +360,10 @@ const styles = StyleSheet.create({
     height: 220,
     backgroundColor: '#1A1A1A',
   },
-  map: {
-    flex: 1,
-  },
-  mapPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  mapPlaceholderText: {
-    color: '#555555',
-    fontSize: 13,
-    textAlign: 'center',
-  },
+  map: { flex: 1 },
+  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  mapPlaceholderText: { color: '#555555', fontSize: 13, textAlign: 'center' },
 
-  // Сетка 2×2
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -343,34 +377,11 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  statValue: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  statLabel: {
-    color: '#888888',
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1.5,
-    marginTop: 4,
-  },
+  statValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '600', letterSpacing: 0.5 },
+  statLabel: { color: '#888888', fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 4 },
 
-  // Сплиты
-  splitsBlock: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
+  splitsBlock: { backgroundColor: '#1A1A1A', borderRadius: 14, padding: 16, marginBottom: 28 },
+  sectionTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
   splitsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -379,84 +390,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#2A2A2A',
   },
-  splitsHeaderText: {
-    color: '#555555',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    flex: 1,
-    textAlign: 'center',
-  },
-  splitRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222222',
-  },
-  splitRowLast: {
-    borderBottomWidth: 0,
-  },
-  splitKm: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    flex: 1,
-    textAlign: 'center',
-  },
-  splitPace: {
-    color: '#00E5A0',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'center',
-  },
-  splitTime: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    flex: 1,
-    textAlign: 'center',
-  },
+  splitsHeaderText: { color: '#555555', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, flex: 1, textAlign: 'center' },
+  splitRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#222222' },
+  splitRowLast: { borderBottomWidth: 0 },
+  splitKm: { color: '#AAAAAA', fontSize: 14, flex: 1, textAlign: 'center' },
+  splitPace: { color: '#00E5A0', fontSize: 14, fontWeight: '600', flex: 1, textAlign: 'center' },
+  splitTime: { color: '#AAAAAA', fontSize: 14, flex: 1, textAlign: 'center' },
 
-  // Кнопки
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  btnSave: {
-    flex: 1,
-    backgroundColor: '#00E5A0',
-    borderRadius: 28,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  btnSaveText: {
-    color: '#0D0D0D',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  btnShare: {
-    flex: 1,
-    backgroundColor: '#2A2A2A',
-    borderRadius: 28,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  btnShareFull: {
-    flex: 1,
-  },
-  btnShareText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  btnDiscard: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  btnDiscardText: {
-    color: '#444444',
-    fontSize: 13,
-  },
+  actions: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  btnSave: { flex: 1, backgroundColor: '#00E5A0', borderRadius: 28, paddingVertical: 16, alignItems: 'center' },
+  btnSaveText: { color: '#0D0D0D', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
+  btnShare: { flex: 1, backgroundColor: '#2A2A2A', borderRadius: 28, paddingVertical: 16, alignItems: 'center' },
+  btnShareFull: { flex: 1 },
+  btnShareText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  btnDiscard: { alignItems: 'center', paddingVertical: 8 },
+  btnDiscardText: { color: '#444444', fontSize: 13 },
 });

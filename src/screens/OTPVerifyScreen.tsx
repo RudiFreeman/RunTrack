@@ -1,7 +1,6 @@
 /**
- * OTPVerifyScreen — экран ввода SMS-кода подтверждения.
- * Пользователь получил SMS, вводит 6-значный код.
- * После успешной верификации — переход на главный экран.
+ * OTPVerifyScreen — ввод 6-значного кода из письма.
+ * После успешной верификации синхронизирует данные и открывает главный экран.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -29,28 +28,24 @@ type Props = {
   route: RouteProp<RootStackParamList, 'OTPVerify'>;
 };
 
-/** Секунды до повторной отправки кода */
 const RESEND_TIMEOUT = 60;
 
 export default function OTPVerifyScreen({ navigation, route }: Props) {
-  const { phone } = route.params;
+  const { contact } = route.params;
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(RESEND_TIMEOUT);
   const inputRef = useRef<TextInput>(null);
 
-  // Таймер обратного отсчёта до повторной отправки
   useEffect(() => {
     if (resendTimer <= 0) return;
     const id = setTimeout(() => setResendTimer(t => t - 1), 1000);
     return () => clearTimeout(id);
   }, [resendTimer]);
 
-  // Автоматически верифицировать, когда введены все 6 цифр
+  // Автоверификация при вводе 6-й цифры
   useEffect(() => {
-    if (otp.length === 6) {
-      void handleVerify();
-    }
+    if (otp.length === 6) void handleVerify();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp]);
 
@@ -62,9 +57,9 @@ export default function OTPVerifyScreen({ navigation, route }: Props) {
 
     setLoading(true);
     try {
-      await authService.verifyOTP(phone, otp);
+      await authService.verifyOTP(contact, otp);
 
-      // После входа — загружаем облачные данные и мёрджим с локальными
+      // Синхронизируем локальные данные в облако (тихо)
       try {
         const [localRuns, cloudRuns] = await Promise.all([
           getAllRuns(),
@@ -72,13 +67,11 @@ export default function OTPVerifyScreen({ navigation, route }: Props) {
         ]);
         const user = await authService.getUser();
         if (user) {
-          // Синхронизируем локальные пробежки в облако
           await syncService.pushLocalToCloud(localRuns, user.id);
-          // Мёрджим (облако имеет приоритет)
           syncService.mergeRuns(localRuns, cloudRuns);
         }
       } catch {
-        // Синхронизация не критична — пользователь уже вошёл
+        // Не критично — пользователь уже вошёл
       }
 
       navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
@@ -95,10 +88,10 @@ export default function OTPVerifyScreen({ navigation, route }: Props) {
   async function handleResend(): Promise<void> {
     setLoading(true);
     try {
-      await authService.sendOTP(phone);
+      await authService.sendOTP(contact);
       setResendTimer(RESEND_TIMEOUT);
       setOtp('');
-      Alert.alert('Отправлено', 'Новый код отправлен на ' + phone);
+      Alert.alert('Отправлено', 'Новый код отправлен на ' + contact);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Ошибка отправки';
       Alert.alert('Ошибка', message);
@@ -113,16 +106,12 @@ export default function OTPVerifyScreen({ navigation, route }: Props) {
         style={styles.inner}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Заголовок */}
         <View style={styles.header}>
           <Text style={styles.title}>Введи код</Text>
-          <Text style={styles.subtitle}>
-            Мы отправили 6-значный код на номер
-          </Text>
-          <Text style={styles.phone}>{phone}</Text>
+          <Text style={styles.subtitle}>Код из письма отправлен на</Text>
+          <Text style={styles.contact}>{contact}</Text>
         </View>
 
-        {/* Поле ввода OTP */}
         <View style={styles.form}>
           <TextInput
             ref={inputRef}
@@ -139,15 +128,10 @@ export default function OTPVerifyScreen({ navigation, route }: Props) {
           />
 
           {loading && (
-            <ActivityIndicator
-              color="#00E5A0"
-              size="large"
-              style={styles.spinner}
-            />
+            <ActivityIndicator color="#00E5A0" size="large" style={styles.spinner} />
           )}
         </View>
 
-        {/* Повторная отправка */}
         {resendTimer > 0 ? (
           <Text style={styles.resendTimer}>
             Повторная отправка через {resendTimer} сек
@@ -158,12 +142,8 @@ export default function OTPVerifyScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         )}
 
-        {/* Назад */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backText}>← Изменить номер</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>← Изменить email</Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -171,43 +151,13 @@ export default function OTPVerifyScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0D0D0D',
-  },
-  inner: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#888888',
-    textAlign: 'center',
-  },
-  phone: {
-    fontSize: 17,
-    color: '#00E5A0',
-    fontWeight: '600',
-    marginTop: 6,
-    letterSpacing: 1,
-  },
-  form: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
+  container: { flex: 1, backgroundColor: '#0D0D0D' },
+  inner: { flex: 1, paddingHorizontal: 24, justifyContent: 'center', alignItems: 'center' },
+  header: { marginBottom: 40, alignItems: 'center' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
+  subtitle: { fontSize: 15, color: '#888888', textAlign: 'center' },
+  contact: { fontSize: 17, color: '#00E5A0', fontWeight: '600', marginTop: 6, letterSpacing: 0.5 },
+  form: { width: '100%', alignItems: 'center', marginBottom: 24 },
   otpInput: {
     backgroundColor: '#1A1A1A',
     borderRadius: 12,
@@ -221,25 +171,9 @@ const styles = StyleSheet.create({
     borderColor: '#2A2A2A',
     marginBottom: 8,
   },
-  spinner: {
-    marginTop: 16,
-  },
-  resendTimer: {
-    fontSize: 14,
-    color: '#555555',
-    marginBottom: 24,
-  },
-  resendLink: {
-    fontSize: 15,
-    color: '#00E5A0',
-    textDecorationLine: 'underline',
-    marginBottom: 24,
-  },
-  backButton: {
-    paddingVertical: 12,
-  },
-  backText: {
-    fontSize: 15,
-    color: '#888888',
-  },
+  spinner: { marginTop: 16 },
+  resendTimer: { fontSize: 14, color: '#555555', marginBottom: 24 },
+  resendLink: { fontSize: 15, color: '#00E5A0', textDecorationLine: 'underline', marginBottom: 24 },
+  backButton: { paddingVertical: 12 },
+  backText: { fontSize: 15, color: '#888888' },
 });
