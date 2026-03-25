@@ -135,13 +135,35 @@ interface SummaryParams {
 
 ---
 
-## Что следующее — Sprint 3
+## Sprint 3 — В работе
 
-1. **Supabase** — облачная синхронизация истории пробежек, авторизация через email/Google
-2. **Push-уведомления** — напоминания о тренировках (`expo-notifications`)
-3. **Цели и план тренировок** — недельный план, прогресс к цели (5 км / 10 км / полумарафон)
-4. **Улучшение карты** — анимированный трек, маркеры старта/финиша, километровые отметки
-5. **Экспорт данных** — GPX-файл, отправка в Strava / Garmin Connect
+### Supabase Auth + Sync (в работе)
+- [x] `@supabase/supabase-js` установлен
+- [x] `src/config/supabase.ts` — клиент с AsyncStorage адаптером
+- [x] `src/services/authService.ts` — вход по телефону (OTP), выход, getUser
+- [x] `src/services/syncService.ts` — upload/download/delete/merge пробежек
+- [x] `src/screens/AuthScreen.tsx` — экран ввода номера телефона
+- [x] `src/screens/OTPVerifyScreen.tsx` — экран ввода 6-значного кода
+- [x] `supabase/migrations/001_create_runs_table.sql` — SQL миграция (запустить в Supabase Dashboard)
+- [x] `storageService.ts` — обновлён: saveRun/deleteRun синхронизируют с облаком если авторизован
+- [x] `App.tsx` — проверка сессии при старте, маршрутизация Auth/MainTabs
+- [x] `.env.example` — шаблон переменных окружения
+
+### Ещё в Sprint 3
+- [ ] **Шеринг в Telegram** — карточка забега (изображение с метриками)
+- [ ] **Push-уведомления** — напоминания о тренировках (`expo-notifications`)
+- [ ] **Цели и план тренировок** — недельный план, прогресс к цели
+
+### Как активировать Supabase
+1. Создать проект на supabase.com (регион Frankfurt)
+2. Запустить `supabase/migrations/001_create_runs_table.sql` в SQL Editor
+3. Authentication → Providers → Phone → включить + настроить Twilio (или использовать Email)
+4. Скопировать URL и anon key из Settings → API
+5. Создать файл `.env` в корне:
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
+   ```
 
 ---
 
@@ -171,8 +193,10 @@ interface SummaryParams {
 "@react-navigation/bottom-tabs": "^6.x"
 ```
 
-Планируемые зависимости (Sprint 3):
-- `@supabase/supabase-js` — облачная БД и авторизация
+Добавлено в Sprint 3:
+- `@supabase/supabase-js` ^2.x — облачная БД и авторизация (установлено)
+
+Планируется:
 - `expo-notifications` — push-уведомления
 
 ---
