@@ -251,8 +251,22 @@ interface SummaryParams {
 
 ---
 
+## Версионирование
+
+- **Текущая версия:** `0.4.0`
+- **Стандарт:** SemVer в формате `0.MINOR.PATCH`
+  - `MINOR` — новая фича (новый экран, новая интеграция)
+  - `PATCH` — багфикс, рефакторинг без новой функциональности
+- **При каждом релизе обновлять:**
+  1. `app.json` → поле `"version"`
+  2. `package.json` → поле `"version"`
+  3. `CHANGELOG.md` → добавить раздел `## [x.y.z]`
+  4. `README.md` → значок `![Version](...)`
+
+---
+
 ## Git
 
 - Основная ветка разработки: `claude/sprint-4-testing-optimization-jLvPp`
 - Репозиторий: `https://github.com/RudiFreeman/RunTrack`
-- Коммиты на русском или английском, в формате `feat:` / `fix:` / `docs:`
+- Коммиты на русском или английском, в формате `feat:` / `fix:` / `docs:` / `chore:`
