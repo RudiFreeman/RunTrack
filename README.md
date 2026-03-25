@@ -2,9 +2,10 @@
 
 > Беговой трекер для рынка СНГ — быстрый, минималистичный, с тёмным интерфейсом на русском языке.
 
+![Version](https://img.shields.io/badge/version-0.4.0-00E5A0)
 ![Статус](https://img.shields.io/badge/статус-в%20разработке-orange)
 ![Платформа](https://img.shields.io/badge/платформа-iOS%20%7C%20Android-blue)
-![Expo](https://img.shields.io/badge/Expo-SDK51-black)
+![Expo](https://img.shields.io/badge/Expo-SDK55-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-строгий-blue)
 
 ---
@@ -125,11 +126,22 @@ RunTrack/
 
 ## Статус проекта
 
-**🚧 В активной разработке — Sprint 3 завершён**
+**🚧 В активной разработке — Sprint 4 в процессе**
 
-Sprint 3 добавил авторизацию через Magic Link (Supabase), синхронизацию пробежек с облаком,
-шеринг карточки забега в Telegram/ВКонтакте и русскую локализацию через i18n.
-Sprint 4 — push-уведомления и план тренировок.
+Sprint 4 — финальный: аудит кода, исправление багов, онбординг, оптимизация GPS.
+
+---
+
+## Версии
+
+Полная история изменений → [CHANGELOG.md](./CHANGELOG.md)
+
+| Версия | Sprint | Что добавлено |
+|--------|--------|---------------|
+| [0.4.0](./CHANGELOG.md#040--sprint-4-текущий) | Sprint 4 | Онбординг, GPS-сглаживание, аудит и багфиксы |
+| [0.3.0](./CHANGELOG.md#030--sprint-3) | Sprint 3 | Supabase Auth, облачная синхронизация, i18n |
+| [0.2.0](./CHANGELOG.md#020--sprint-2) | Sprint 2 | История, карта, графики, рекорды |
+| [0.1.0](./CHANGELOG.md#010--sprint-1) | Sprint 1 | GPS, таймер, базовый UI |
 
 ---
 

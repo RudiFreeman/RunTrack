@@ -9,11 +9,14 @@ export type TabParamList = {
   Home: undefined;
   History: undefined;
   Stats: undefined;
+  Notifications: undefined;
 };
 
 // ─── Корневой стек ────────────────────────────────────────────────────────────
 
 export type RootStackParamList = {
+  /** Онбординг — показывается только при первом запуске */
+  Onboarding: undefined;
   /** Экран входа по magic link */
   Auth: undefined;
   /** Основные табы приложения */

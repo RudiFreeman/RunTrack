@@ -32,7 +32,8 @@ RunTrack/
     ├── screens/
     │   ├── SummaryScreen.tsx         # Итоги забега (карта, сплиты, калории, шеринг)
     │   ├── HistoryScreen.tsx         # История (список, суммарная статистика, свайп-удаление)
-    │   └── StatsScreen.tsx           # Статистика (графики, рекорды, периоды)
+    │   ├── StatsScreen.tsx           # Статистика (графики, рекорды, периоды)
+    │   └── OnboardingScreen.tsx      # Онбординг 3 слайда (только первый запуск)
     ├── services/
     │   ├── locationService.ts        # haversine, calculatePace, форматирование
     │   └── storageService.ts         # CRUD: saveRun / getAllRuns / deleteRun
@@ -45,6 +46,7 @@ RunTrack/
 ```
 NavigationContainer
   └── RootStack
+        ├── Onboarding (OnboardingScreen) — только первый запуск
         ├── Tabs (TabNavigator)
         │     ├── 🏃 Home (HomeScreen)
         │     │       └── useRunTimer + useGPSTracker → navigate('Summary', params)
@@ -207,12 +209,12 @@ interface SummaryParams {
 - `expo-sharing` — нативный диалог шеринга
 - `i18next` + `react-i18next` — русская локализация
 
-Планируется в Sprint 4:
-- `expo-notifications` — push-уведомления
+Добавлено в Sprint 4:
+- `expo-notifications` ^55.x — push-уведомления (напоминания о пробежках)
 
 ---
 
-## Sprint 4 — В ПРОЦЕССЕ 🚧
+## Sprint 4 — ЗАВЕРШЁН ✅
 
 ### Аудит перед финальной сборкой (2026-03-25)
 
@@ -230,17 +232,53 @@ interface SummaryParams {
 | 🟡 Крэш | `useGPSTracker.ts:103` | `resumeTracking()` без проверки разрешения — крэш если юзер отозвал GPS в фоне | ✅ Исправлено |
 | 🟡 UX | `HomeScreen.tsx:31` | Таймер стартовал до получения разрешения GPS — при отказе таймер тикал без GPS | ✅ Исправлено |
 | 🟡 Мёртвый код | `App.tsx:170` | Дублирующий роут `"Tabs"` (нигде не используется, `"MainTabs"` — актуальный) | 🟡 Оставлен (backward compat) |
-| 🟡 UX | `locationService.ts:46` | Нет сглаживания GPS-шума в текущем темпе — может показывать 0:01/км при прыжках | 📋 Sprint 4 |
-| 🟢 DX | `supabase.ts:7` | Нет проверки env-переменных — криптичные ошибки при незаполненном `.env` | 📋 Sprint 4 |
-| 🟢 Чистота | `storageService.ts:72` | `replaceAllRuns` экспортирована но нигде не используется | 📋 Sprint 4 |
-| 🟢 Точность | `locationService.ts:125` | `splitStart` обновляется на GPS-точку, а не интерполированную 1км-отметку | 📋 Sprint 4 |
-| 🟢 UX | `SummaryScreen.tsx:107` | Дата забега = момент нажатия «Сохранить», не момент завершения бега | 📋 Sprint 4 |
+| 🟡 UX | `locationService.ts:46` | Нет сглаживания GPS-шума в текущем темпе — может показывать 0:01/км при прыжках | ✅ Исправлено |
+| 🟢 DX | `supabase.ts:7` | Нет проверки env-переменных — криптичные ошибки при незаполненном `.env` | ✅ Исправлено |
+| 🟢 Чистота | `storageService.ts:72` | `replaceAllRuns` экспортирована но нигде не используется | ✅ Исправлено |
+| 🟢 Точность | `locationService.ts:125` | `splitStart` обновляется на GPS-точку, а не интерполированную 1км-отметку | 🟢 Оставлено (минимальное влияние) |
+| 🟢 UX | `SummaryScreen.tsx:107` | Дата забега = момент нажатия «Сохранить», не момент завершения бега | ✅ Исправлено |
 
 #### Что исправлено в Sprint 4
 
-- **`src/services/storageService.ts`** — `loadAll()` теперь оборачивает `JSON.parse` в try/catch, возвращает `[]` при повреждённых данных
-- **`src/components/HomeScreen.tsx`** — `handleStart` сначала проверяет GPS-разрешение, только потом запускает таймер; `handleStop` пересчитывает дистанцию/темп напрямую из `coordsRef` (не из React state)
-- **`src/hooks/useGPSTracker.ts`** — `resumeTracking()` теперь вызывает `requestPermission()` перед запуском наблюдения за координатами
+- **`src/services/storageService.ts`** — `loadAll()` оборачивает `JSON.parse` в try/catch; удалена неиспользуемая `replaceAllRuns`
+- **`src/components/HomeScreen.tsx`** — `handleStart` проверяет разрешение перед стартом; `handleStop` пересчитывает дистанцию/темп из `coordsRef`; фиксируется `startTimeRef` (ISO дата старта → передаётся в Summary)
+- **`src/hooks/useGPSTracker.ts`** — `resumeTracking()` вызывает `requestPermission()`; скользящее среднее темпа: окно 5 точек, диапазон [120–1200 сек/км], фильтр выбросов ×3
+- **`src/config/supabase.ts`** — `console.error` с инструкцией если env-переменные не заданы
+- **`src/screens/SummaryScreen.tsx`** — дата забега берётся из `runDate` (момент старта), а не `new Date()` при сохранении
+- **`src/screens/OnboardingScreen.tsx`** — новый экран: 3 слайда (свайп, FlatList+pagingEnabled), кнопка «Пропустить» на слайдах 1–2, кнопка «НАЧАТЬ БЕГАТЬ» на слайде 3, точки-индикаторы; сохраняет флаг `@runtrack_onboarding_complete` в AsyncStorage
+- **`App.tsx`** — при старте читает флаг онбординга параллельно с проверкой сессии; `getInitialRoute()` определяет экран: Onboarding → Auth → MainTabs; роут `'Onboarding'` добавлен в стек
+- **`src/navigation/types.ts`** — добавлен `Onboarding: undefined` в `RootStackParamList`
+- **`src/services/notificationService.ts`** — новый сервис: запрос разрешения (однократно), загрузка/сохранение настроек, планирование/отмена еженедельных уведомлений через `Notifications.SchedulableTriggerInputTypes.WEEKLY`
+- **`src/screens/NotificationsScreen.tsx`** — новый экран: тоггл включения, выбор дней недели (Пн–Вс), выбор времени (6 кнопок), кнопка «Сохранить»
+- **`App.tsx`** — `navigationRef` для перехода при тапе на уведомление; `TabNavigator` запрашивает разрешение при первом монтировании; вкладка 🔔 добавлена в TabNavigator
+- **`src/navigation/types.ts`** — `Notifications: undefined` добавлен в `TabParamList`
+- **`src/i18n/ru.json`** — добавлен ключ `nav.notifications`
+- **`app.json`** — добавлен плагин `expo-notifications`
+
+---
+
+## Следующий шаг
+
+**Подготовка к публикации в App Store / Google Play:**
+1. Настроить EAS Build (`eas build --platform ios`)
+2. Заполнить `app.json` → `ios.bundleIdentifier`, `android.package`
+3. Добавить иконки и splash-screen финального дизайна
+4. Тест на реальных устройствах через Expo Go
+5. Submit через `eas submit`
+
+---
+
+## Версионирование
+
+- **Текущая версия:** `0.4.0`
+- **Стандарт:** SemVer в формате `0.MINOR.PATCH`
+  - `MINOR` — новая фича (новый экран, новая интеграция)
+  - `PATCH` — багфикс, рефакторинг без новой функциональности
+- **При каждом релизе обновлять:**
+  1. `app.json` → поле `"version"`
+  2. `package.json` → поле `"version"`
+  3. `CHANGELOG.md` → добавить раздел `## [x.y.z]`
+  4. `README.md` → значок `![Version](...)`
 
 ---
 
@@ -248,4 +286,4 @@ interface SummaryParams {
 
 - Основная ветка разработки: `claude/sprint-4-testing-optimization-jLvPp`
 - Репозиторий: `https://github.com/RudiFreeman/RunTrack`
-- Коммиты на русском или английском, в формате `feat:` / `fix:` / `docs:`
+- Коммиты на русском или английском, в формате `feat:` / `fix:` / `docs:` / `chore:`

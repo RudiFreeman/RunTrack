@@ -70,10 +70,3 @@ export async function deleteRun(id: string): Promise<void> {
     // Не критично
   }
 }
-
-/**
- * Заменяет весь локальный список (используется при первичной синхронизации из облака).
- */
-export async function replaceAllRuns(runs: SavedRun[]): Promise<void> {
-  await saveAll(runs);
-}
