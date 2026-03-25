@@ -212,8 +212,40 @@ interface SummaryParams {
 
 ---
 
+## Sprint 4 — В ПРОЦЕССЕ 🚧
+
+### Аудит перед финальной сборкой (2026-03-25)
+
+#### Безопасность — OK ✅
+- `.env` исключён из git через `.gitignore`
+- Supabase ключи только через `EXPO_PUBLIC_*` env-переменные
+- Захардкоженных токенов в коде не найдено
+
+#### Найденные баги и статус исправлений
+
+| Приоритет | Файл | Проблема | Статус |
+|-----------|------|---------|--------|
+| 🔴 Крэш | `storageService.ts:11` | `JSON.parse` без try/catch — крэш при повреждённых данных | ✅ Исправлено |
+| 🔴 Данные | `HomeScreen.tsx:48` | GPS state-гонка при стопе — дистанция/темп из React state, отставали на 1 апдейт | ✅ Исправлено |
+| 🟡 Крэш | `useGPSTracker.ts:103` | `resumeTracking()` без проверки разрешения — крэш если юзер отозвал GPS в фоне | ✅ Исправлено |
+| 🟡 UX | `HomeScreen.tsx:31` | Таймер стартовал до получения разрешения GPS — при отказе таймер тикал без GPS | ✅ Исправлено |
+| 🟡 Мёртвый код | `App.tsx:170` | Дублирующий роут `"Tabs"` (нигде не используется, `"MainTabs"` — актуальный) | 🟡 Оставлен (backward compat) |
+| 🟡 UX | `locationService.ts:46` | Нет сглаживания GPS-шума в текущем темпе — может показывать 0:01/км при прыжках | 📋 Sprint 4 |
+| 🟢 DX | `supabase.ts:7` | Нет проверки env-переменных — криптичные ошибки при незаполненном `.env` | 📋 Sprint 4 |
+| 🟢 Чистота | `storageService.ts:72` | `replaceAllRuns` экспортирована но нигде не используется | 📋 Sprint 4 |
+| 🟢 Точность | `locationService.ts:125` | `splitStart` обновляется на GPS-точку, а не интерполированную 1км-отметку | 📋 Sprint 4 |
+| 🟢 UX | `SummaryScreen.tsx:107` | Дата забега = момент нажатия «Сохранить», не момент завершения бега | 📋 Sprint 4 |
+
+#### Что исправлено в Sprint 4
+
+- **`src/services/storageService.ts`** — `loadAll()` теперь оборачивает `JSON.parse` в try/catch, возвращает `[]` при повреждённых данных
+- **`src/components/HomeScreen.tsx`** — `handleStart` сначала проверяет GPS-разрешение, только потом запускает таймер; `handleStop` пересчитывает дистанцию/темп напрямую из `coordsRef` (не из React state)
+- **`src/hooks/useGPSTracker.ts`** — `resumeTracking()` теперь вызывает `requestPermission()` перед запуском наблюдения за координатами
+
+---
+
 ## Git
 
-- Основная ветка разработки: `claude/runtrack-app-mvp-4Grud`
+- Основная ветка разработки: `claude/sprint-4-testing-optimization-jLvPp`
 - Репозиторий: `https://github.com/RudiFreeman/RunTrack`
 - Коммиты на русском или английском, в формате `feat:` / `fix:` / `docs:`
