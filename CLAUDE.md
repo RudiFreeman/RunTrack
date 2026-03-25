@@ -214,7 +214,7 @@ interface SummaryParams {
 
 ---
 
-## Sprint 4 — В ПРОЦЕССЕ 🚧
+## Sprint 4 — ЗАВЕРШЁН ✅
 
 ### Аудит перед финальной сборкой (2026-03-25)
 
@@ -254,6 +254,17 @@ interface SummaryParams {
 - **`src/navigation/types.ts`** — `Notifications: undefined` добавлен в `TabParamList`
 - **`src/i18n/ru.json`** — добавлен ключ `nav.notifications`
 - **`app.json`** — добавлен плагин `expo-notifications`
+
+---
+
+## Следующий шаг
+
+**Подготовка к публикации в App Store / Google Play:**
+1. Настроить EAS Build (`eas build --platform ios`)
+2. Заполнить `app.json` → `ios.bundleIdentifier`, `android.package`
+3. Добавить иконки и splash-screen финального дизайна
+4. Тест на реальных устройствах через Expo Go
+5. Submit через `eas submit`
 
 ---
 
