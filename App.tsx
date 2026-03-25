@@ -6,11 +6,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, ActivityIndicator, Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HomeScreen } from './src/components/HomeScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import AuthScreen from './src/screens/AuthScreen';
+import OnboardingScreen, { ONBOARDING_KEY } from './src/screens/OnboardingScreen';
 import { RootStackParamList, TabParamList } from './src/navigation/types';
 import { supabase } from './src/config/supabase';
 
@@ -105,22 +107,45 @@ function extractTokens(url: string): { accessToken: string; refreshToken: string
   return { accessToken, refreshToken };
 }
 
+/**
+ * Определяет начальный экран по результатам инициализации.
+ *
+ * Приоритет:
+ *  1. Онбординг не завершён → показываем онбординг
+ *  2. Нет сессии → экран входа
+ *  3. Есть сессия → основное приложение
+ */
+function getInitialRoute(
+  onboardingComplete: boolean,
+  isAuthenticated: boolean,
+): keyof RootStackParamList {
+  if (!onboardingComplete) return 'Onboarding';
+  if (!isAuthenticated) return 'Auth';
+  return 'MainTabs';
+}
+
 export default function App() {
-  // null = ещё проверяем сессию при старте
+  // null = ещё идёт инициализация
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // 1. Проверяем текущую сессию
+    // 1. Проверяем флаг завершения онбординга (AsyncStorage)
+    AsyncStorage.getItem(ONBOARDING_KEY).then((value) => {
+      setOnboardingComplete(value === 'true');
+    });
+
+    // 2. Проверяем текущую сессию Supabase
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(session !== null);
     });
 
-    // 2. Слушаем изменения авторизации (в т.ч. после обработки magic link)
+    // 3. Слушаем изменения авторизации (в т.ч. после обработки magic link)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(session !== null);
     });
 
-    // 3. Обрабатываем deep link, если приложение было запущено через ссылку
+    // 4. Обрабатываем deep link, если приложение было запущено через ссылку
     const handleUrl = async (url: string): Promise<void> => {
       const tokens = extractTokens(url);
       if (!tokens) return;
@@ -145,14 +170,16 @@ export default function App() {
     };
   }, []);
 
-  // Сплэш пока проверяем сессию
-  if (isAuthenticated === null) {
+  // Сплэш пока проверяем сессию и флаг онбординга
+  if (isAuthenticated === null || onboardingComplete === null) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0D0D0D', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color="#00E5A0" size="large" />
       </View>
     );
   }
+
+  const initialRouteName = getInitialRoute(onboardingComplete, isAuthenticated);
 
   return (
     <NavigationContainer>
@@ -163,8 +190,9 @@ export default function App() {
           contentStyle: { backgroundColor: '#0D0D0D' },
           animation: 'slide_from_right',
         }}
-        initialRouteName={isAuthenticated ? 'MainTabs' : 'Auth'}
+        initialRouteName={initialRouteName}
       >
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
         <Stack.Screen name="MainTabs" component={TabNavigator} />
         <Stack.Screen name="Tabs" component={TabNavigator} />

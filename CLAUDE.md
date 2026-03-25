@@ -32,7 +32,8 @@ RunTrack/
     ├── screens/
     │   ├── SummaryScreen.tsx         # Итоги забега (карта, сплиты, калории, шеринг)
     │   ├── HistoryScreen.tsx         # История (список, суммарная статистика, свайп-удаление)
-    │   └── StatsScreen.tsx           # Статистика (графики, рекорды, периоды)
+    │   ├── StatsScreen.tsx           # Статистика (графики, рекорды, периоды)
+    │   └── OnboardingScreen.tsx      # Онбординг 3 слайда (только первый запуск)
     ├── services/
     │   ├── locationService.ts        # haversine, calculatePace, форматирование
     │   └── storageService.ts         # CRUD: saveRun / getAllRuns / deleteRun
@@ -45,6 +46,7 @@ RunTrack/
 ```
 NavigationContainer
   └── RootStack
+        ├── Onboarding (OnboardingScreen) — только первый запуск
         ├── Tabs (TabNavigator)
         │     ├── 🏃 Home (HomeScreen)
         │     │       └── useRunTimer + useGPSTracker → navigate('Summary', params)
@@ -243,6 +245,9 @@ interface SummaryParams {
 - **`src/hooks/useGPSTracker.ts`** — `resumeTracking()` вызывает `requestPermission()`; скользящее среднее темпа: окно 5 точек, диапазон [120–1200 сек/км], фильтр выбросов ×3
 - **`src/config/supabase.ts`** — `console.error` с инструкцией если env-переменные не заданы
 - **`src/screens/SummaryScreen.tsx`** — дата забега берётся из `runDate` (момент старта), а не `new Date()` при сохранении
+- **`src/screens/OnboardingScreen.tsx`** — новый экран: 3 слайда (свайп, FlatList+pagingEnabled), кнопка «Пропустить» на слайдах 1–2, кнопка «НАЧАТЬ БЕГАТЬ» на слайде 3, точки-индикаторы; сохраняет флаг `@runtrack_onboarding_complete` в AsyncStorage
+- **`App.tsx`** — при старте читает флаг онбординга параллельно с проверкой сессии; `getInitialRoute()` определяет экран: Onboarding → Auth → MainTabs; роут `'Onboarding'` добавлен в стек
+- **`src/navigation/types.ts`** — добавлен `Onboarding: undefined` в `RootStackParamList`
 
 ---
 
