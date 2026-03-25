@@ -1,20 +1,27 @@
 import 'react-native-gesture-handler';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, ActivityIndicator, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { HomeScreen } from './src/components/HomeScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import OnboardingScreen, { ONBOARDING_KEY } from './src/screens/OnboardingScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import { notificationService } from './src/services/notificationService';
 import { RootStackParamList, TabParamList } from './src/navigation/types';
 import { supabase } from './src/config/supabase';
+
+// ─── Navigation ref (для тапа по уведомлению из фона) ────────────────────────
+
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 // ─── Иконки вкладок ───────────────────────────────────────────────────────────
 
@@ -30,6 +37,14 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 function TabNavigator() {
   const { t } = useTranslation();
+
+  // Запрашиваем разрешение на уведомления один раз при первом открытии MainTabs
+  useEffect(() => {
+    notificationService.requestPermissionOnce().catch(() => {
+      // Тихо игнорируем — уведомления не критичны для работы приложения
+    });
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -75,6 +90,14 @@ function TabNavigator() {
           tabBarIcon: ({ focused }) => <TabIcon emoji="📈" focused={focused} />,
         }}
       />
+      <Tab.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          tabBarLabel: t('nav.notifications'),
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🔔" focused={focused} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -93,7 +116,6 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
  *   runtrack://?access_token=XXX&refresh_token=YYY
  */
 function extractTokens(url: string): { accessToken: string; refreshToken: string } | null {
-  // Ищем параметры в hash (#) или query string (?)
   const separator = url.includes('#') ? '#' : (url.includes('?') ? '?' : null);
   if (!separator) return null;
 
@@ -149,24 +171,29 @@ export default function App() {
     const handleUrl = async (url: string): Promise<void> => {
       const tokens = extractTokens(url);
       if (!tokens) return;
-      // Устанавливаем сессию — onAuthStateChange сработает автоматически
       await supabase.auth.setSession({
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
       });
     };
 
-    // Приложение было закрыто, открылось по ссылке
     Linking.getInitialURL().then(url => {
       if (url) void handleUrl(url);
     });
 
-    // Приложение было в фоне, ссылка открылась поверх
     const linkSub = Linking.addEventListener('url', ({ url }) => void handleUrl(url));
+
+    // 5. Тап по уведомлению → открываем HomeScreen
+    const notifSub = Notifications.addNotificationResponseReceivedListener(() => {
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('MainTabs');
+      }
+    });
 
     return () => {
       subscription.unsubscribe();
       linkSub.remove();
+      notifSub.remove();
     };
   }, []);
 
@@ -182,7 +209,7 @@ export default function App() {
   const initialRouteName = getInitialRoute(onboardingComplete, isAuthenticated);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar style="light" />
       <Stack.Navigator
         screenOptions={{

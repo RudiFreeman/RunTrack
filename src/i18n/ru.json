@@ -2,7 +2,8 @@
   "nav": {
     "run": "Бег",
     "history": "История",
-    "stats": "Статистика"
+    "stats": "Статистика",
+    "notifications": "Напомин."
   },
 
   "home": {

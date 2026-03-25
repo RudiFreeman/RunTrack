@@ -9,6 +9,7 @@ export type TabParamList = {
   Home: undefined;
   History: undefined;
   Stats: undefined;
+  Notifications: undefined;
 };
 
 // ─── Корневой стек ────────────────────────────────────────────────────────────

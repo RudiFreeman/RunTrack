@@ -209,8 +209,8 @@ interface SummaryParams {
 - `expo-sharing` — нативный диалог шеринга
 - `i18next` + `react-i18next` — русская локализация
 
-Планируется в Sprint 4:
-- `expo-notifications` — push-уведомления
+Добавлено в Sprint 4:
+- `expo-notifications` ^55.x — push-уведомления (напоминания о пробежках)
 
 ---
 
@@ -248,6 +248,12 @@ interface SummaryParams {
 - **`src/screens/OnboardingScreen.tsx`** — новый экран: 3 слайда (свайп, FlatList+pagingEnabled), кнопка «Пропустить» на слайдах 1–2, кнопка «НАЧАТЬ БЕГАТЬ» на слайде 3, точки-индикаторы; сохраняет флаг `@runtrack_onboarding_complete` в AsyncStorage
 - **`App.tsx`** — при старте читает флаг онбординга параллельно с проверкой сессии; `getInitialRoute()` определяет экран: Onboarding → Auth → MainTabs; роут `'Onboarding'` добавлен в стек
 - **`src/navigation/types.ts`** — добавлен `Onboarding: undefined` в `RootStackParamList`
+- **`src/services/notificationService.ts`** — новый сервис: запрос разрешения (однократно), загрузка/сохранение настроек, планирование/отмена еженедельных уведомлений через `Notifications.SchedulableTriggerInputTypes.WEEKLY`
+- **`src/screens/NotificationsScreen.tsx`** — новый экран: тоггл включения, выбор дней недели (Пн–Вс), выбор времени (6 кнопок), кнопка «Сохранить»
+- **`App.tsx`** — `navigationRef` для перехода при тапе на уведомление; `TabNavigator` запрашивает разрешение при первом монтировании; вкладка 🔔 добавлена в TabNavigator
+- **`src/navigation/types.ts`** — `Notifications: undefined` добавлен в `TabParamList`
+- **`src/i18n/ru.json`** — добавлен ключ `nav.notifications`
+- **`app.json`** — добавлен плагин `expo-notifications`
 
 ---
 

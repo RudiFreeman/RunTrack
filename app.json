@@ -40,6 +40,12 @@
     },
     "plugins": [
       [
+        "expo-notifications",
+        {
+          "color": "#00E5A0"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "RunTrack использует геолокацию для записи вашего маршрута во время пробежки.",
