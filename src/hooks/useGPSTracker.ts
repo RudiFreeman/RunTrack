@@ -101,6 +101,10 @@ export function useGPSTracker(elapsedSeconds: number): GPSTrackerState & GPSTrac
   }, []);
 
   const resumeTracking = useCallback(async (): Promise<void> => {
+    // Проверяем разрешение — пользователь мог отозвать его пока приложение было в фоне
+    const granted = await requestPermission();
+    if (!granted) return;
+
     // Продолжаем запись, сохраняя уже накопленные точки
     watchRef.current = await Location.watchPositionAsync(
       {
@@ -111,7 +115,7 @@ export function useGPSTracker(elapsedSeconds: number): GPSTrackerState & GPSTrac
       handleLocationUpdate,
     );
     setIsTracking(true);
-  }, [handleLocationUpdate]);
+  }, [requestPermission, handleLocationUpdate]);
 
   const stopTracking = useCallback((): Coordinate[] => {
     if (watchRef.current) {

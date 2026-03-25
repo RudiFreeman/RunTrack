@@ -17,6 +17,8 @@ import {
   formatDuration,
   formatDistance,
   formatPace,
+  calculateDistance,
+  calculateAveragePace,
 } from '../services/locationService';
 
 export function HomeScreen() {
@@ -29,6 +31,9 @@ export function HomeScreen() {
   const isActive = status === 'running' || status === 'paused';
 
   const handleStart = useCallback(async () => {
+    // Сначала проверяем разрешение — если отказано, таймер не запускаем
+    const granted = await gps.requestPermission();
+    if (!granted) return;
     start();
     await gps.startTracking();
   }, [start, gps]);
@@ -45,9 +50,10 @@ export function HomeScreen() {
 
   const handleStop = useCallback(() => {
     const finalCoords = gps.stopTracking();
-    const finalDistance = gps.distance;
-    const finalAvgPace = gps.averagePace;
     const finalElapsed = elapsed;
+    // Пересчитываем из coordsRef — не берём из React state, который может отставать на 1 апдейт
+    const finalDistance = calculateDistance(finalCoords);
+    const finalAvgPace = calculateAveragePace(finalDistance, finalElapsed);
 
     stop();
     reset();

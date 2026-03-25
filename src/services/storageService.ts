@@ -8,7 +8,12 @@ const STORAGE_KEY = '@runtrack_runs';
 async function loadAll(): Promise<SavedRun[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
-  return JSON.parse(raw) as SavedRun[];
+  try {
+    return JSON.parse(raw) as SavedRun[];
+  } catch {
+    // Данные повреждены — возвращаем пустой список, не крэшим приложение
+    return [];
+  }
 }
 
 async function saveAll(runs: SavedRun[]): Promise<void> {
