@@ -1,44 +1,32 @@
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
 
-/** Данные авторизованного пользователя */
-export interface AuthUser {
-  id: string;
-  email: string;
-}
-
+/**
+ * Magic Link авторизация — самый простой способ входа:
+ * 1. sendMagicLink(email) → Supabase отправляет письмо со ссылкой
+ * 2. Пользователь нажимает ссылку → приложение открывается
+ * 3. App.tsx перехватывает deep link → сессия создаётся автоматически
+ *
+ * В Supabase Dashboard → Auth → URL Configuration:
+ * добавь "runtrack://" в список Redirect URLs
+ */
 export const authService = {
   /**
-   * Шаг 1: Отправить OTP-код на email.
-   *
-   * В Supabase Dashboard нужно включить Email OTP:
-   * Authentication → Providers → Email → выключи "Confirm email",
-   * включи "Email OTP" (или оставь magic link — тогда пользователь
-   * нажимает ссылку в письме вместо ввода кода).
+   * Отправить magic link на email.
+   * Пользователь нажмёт ссылку из письма → приложение откроется и войдёт.
    */
-  async sendOTP(email: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) throw new Error(error.message);
-  },
-
-  /**
-   * Шаг 2: Подтвердить OTP-код из письма.
-   */
-  async verifyOTP(email: string, token: string): Promise<AuthUser> {
-    const { data, error } = await supabase.auth.verifyOtp({
+  async sendMagicLink(email: string): Promise<void> {
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      token,
-      type: 'email',
+      options: {
+        // Куда редиректить после перехода по ссылке
+        emailRedirectTo: 'runtrack://',
+      },
     });
     if (error) throw new Error(error.message);
-    if (!data.user) throw new Error('Пользователь не найден');
-    return {
-      id: data.user.id,
-      email: data.user.email ?? email,
-    };
   },
 
-  /** Выйти из аккаунта и очистить локальную сессию */
+  /** Выйти из аккаунта */
   async signOut(): Promise<void> {
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);

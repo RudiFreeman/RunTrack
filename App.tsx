@@ -4,13 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, ActivityIndicator } from 'react-native';
+import { Text, View, ActivityIndicator, Linking } from 'react-native';
 import { HomeScreen } from './src/components/HomeScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import AuthScreen from './src/screens/AuthScreen';
-import OTPVerifyScreen from './src/screens/OTPVerifyScreen';
 import { RootStackParamList, TabParamList } from './src/navigation/types';
 import { supabase } from './src/config/supabase';
 
@@ -80,25 +79,71 @@ function TabNavigator() {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+/**
+ * Парсит токены из deep link URL после magic link редиректа.
+ *
+ * Supabase редиректит на:
+ *   runtrack://#access_token=XXX&refresh_token=YYY&type=magiclink
+ *
+ * Также может прийти в формате query string:
+ *   runtrack://?access_token=XXX&refresh_token=YYY
+ */
+function extractTokens(url: string): { accessToken: string; refreshToken: string } | null {
+  // Ищем параметры в hash (#) или query string (?)
+  const separator = url.includes('#') ? '#' : (url.includes('?') ? '?' : null);
+  if (!separator) return null;
+
+  const paramString = url.slice(url.indexOf(separator) + 1);
+  const params = new URLSearchParams(paramString);
+
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (!accessToken || !refreshToken) return null;
+  return { accessToken, refreshToken };
+}
+
 export default function App() {
-  // null = ещё проверяем, true/false = результат
+  // null = ещё проверяем сессию при старте
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Проверяем текущую сессию при запуске
+    // 1. Проверяем текущую сессию
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(session !== null);
     });
 
-    // Подписываемся на изменения состояния авторизации
+    // 2. Слушаем изменения авторизации (в т.ч. после обработки magic link)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(session !== null);
     });
 
-    return () => subscription.unsubscribe();
+    // 3. Обрабатываем deep link, если приложение было запущено через ссылку
+    const handleUrl = async (url: string): Promise<void> => {
+      const tokens = extractTokens(url);
+      if (!tokens) return;
+      // Устанавливаем сессию — onAuthStateChange сработает автоматически
+      await supabase.auth.setSession({
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+      });
+    };
+
+    // Приложение было закрыто, открылось по ссылке
+    Linking.getInitialURL().then(url => {
+      if (url) void handleUrl(url);
+    });
+
+    // Приложение было в фоне, ссылка открылась поверх
+    const linkSub = Linking.addEventListener('url', ({ url }) => void handleUrl(url));
+
+    return () => {
+      subscription.unsubscribe();
+      linkSub.remove();
+    };
   }, []);
 
-  // Показываем сплэш пока проверяем сессию
+  // Сплэш пока проверяем сессию
   if (isAuthenticated === null) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0D0D0D', justifyContent: 'center', alignItems: 'center' }}>
@@ -116,13 +161,10 @@ export default function App() {
           contentStyle: { backgroundColor: '#0D0D0D' },
           animation: 'slide_from_right',
         }}
-        // Если авторизован — сразу открываем табы, иначе — экран входа
         initialRouteName={isAuthenticated ? 'MainTabs' : 'Auth'}
       >
         <Stack.Screen name="Auth" component={AuthScreen} />
-        <Stack.Screen name="OTPVerify" component={OTPVerifyScreen} />
         <Stack.Screen name="MainTabs" component={TabNavigator} />
-        {/* Алиас для обратной совместимости */}
         <Stack.Screen name="Tabs" component={TabNavigator} />
         <Stack.Screen name="Summary" component={SummaryScreen} />
       </Stack.Navigator>

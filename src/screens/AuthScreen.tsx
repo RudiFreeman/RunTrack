@@ -1,6 +1,12 @@
 /**
- * AuthScreen — экран ввода email для входа.
- * Supabase отправит письмо с 6-значным кодом или magic link.
+ * AuthScreen — вход через Magic Link.
+ *
+ * Флоу:
+ * 1. Пользователь вводит email, нажимает «Получить ссылку»
+ * 2. Supabase отправляет письмо с кнопкой «Войти в RunTrack»
+ * 3. Показываем экран «Проверьте почту»
+ * 4. Пользователь нажимает ссылку в письме → приложение открывается
+ * 5. App.tsx ловит deep link → сессия создаётся автоматически
  */
 
 import React, { useState } from 'react';
@@ -27,43 +33,78 @@ type Props = {
 export default function AuthScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  async function handleSendOTP(): Promise<void> {
+  async function handleSend(): Promise<void> {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed.includes('@') || !trimmed.includes('.')) {
       Alert.alert('Ошибка', 'Введи корректный email');
       return;
     }
-
     setLoading(true);
     try {
-      await authService.sendOTP(trimmed);
-      navigation.navigate('OTPVerify', { contact: trimmed });
+      await authService.sendMagicLink(trimmed);
+      setSent(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      Alert.alert('Ошибка отправки', message);
+      Alert.alert('Ошибка', message);
     } finally {
       setLoading(false);
     }
   }
 
+  // ─── Экран «Письмо отправлено» ───────────────────────────────────────────────
+  if (sent) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.sentContainer}>
+          <Text style={styles.sentIcon}>📬</Text>
+          <Text style={styles.sentTitle}>Проверьте почту</Text>
+          <Text style={styles.sentBody}>
+            Мы отправили ссылку для входа на
+          </Text>
+          <Text style={styles.sentEmail}>{email.trim().toLowerCase()}</Text>
+          <Text style={styles.sentHint}>
+            Нажмите на кнопку в письме — приложение откроется автоматически.
+          </Text>
+
+          {/* Повторная отправка */}
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => setSent(false)}
+          >
+            <Text style={styles.retryText}>Изменить email или отправить снова</Text>
+          </TouchableOpacity>
+
+          {/* Пропустить */}
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => navigation.navigate('MainTabs')}
+          >
+            <Text style={styles.skipText}>Продолжить без входа</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Экран ввода email ───────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.inner}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Заголовок */}
         <View style={styles.header}>
           <Text style={styles.logo}>🏃</Text>
           <Text style={styles.appName}>RunTrack</Text>
           <Text style={styles.title}>Вход в аккаунт</Text>
           <Text style={styles.subtitle}>
-            Введи email — пришлём письмо с кодом подтверждения
+            Введи email — пришлём ссылку для входа.{'\n'}
+            Пароль не нужен.
           </Text>
         </View>
 
-        {/* Поле ввода */}
         <View style={styles.form}>
           <Text style={styles.label}>Email</Text>
           <TextInput
@@ -76,28 +117,27 @@ export default function AuthScreen({ navigation }: Props) {
             placeholder="you@example.com"
             placeholderTextColor="#555555"
             autoFocus
+            onSubmitEditing={handleSend}
+            returnKeyType="send"
           />
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSendOTP}
+            onPress={handleSend}
             disabled={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#0D0D0D" />
-            ) : (
-              <Text style={styles.buttonText}>Получить код</Text>
-            )}
+            {loading
+              ? <ActivityIndicator color="#0D0D0D" />
+              : <Text style={styles.buttonText}>Получить ссылку</Text>
+            }
           </TouchableOpacity>
         </View>
 
-        {/* Примечание */}
         <Text style={styles.note}>
           Вход синхронизирует пробежки между устройствами.{'\n'}
           Приложение работает и без входа — данные хранятся локально.
         </Text>
 
-        {/* Пропустить */}
         <TouchableOpacity
           style={styles.skipButton}
           onPress={() => navigation.navigate('MainTabs')}
@@ -114,6 +154,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0D0D0D',
   },
+
+  // ── Экран ввода ──────────────────────────────────────────────────────────────
   inner: {
     flex: 1,
     paddingHorizontal: 24,
@@ -196,5 +238,55 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#888888',
     textDecorationLine: 'underline',
+  },
+
+  // ── Экран «Письмо отправлено» ────────────────────────────────────────────────
+  sentContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sentIcon: {
+    fontSize: 64,
+    marginBottom: 24,
+  },
+  sentTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 16,
+  },
+  sentBody: {
+    fontSize: 16,
+    color: '#888888',
+    textAlign: 'center',
+  },
+  sentEmail: {
+    fontSize: 17,
+    color: '#00E5A0',
+    fontWeight: '600',
+    marginTop: 6,
+    marginBottom: 20,
+    letterSpacing: 0.3,
+  },
+  sentHint: {
+    fontSize: 14,
+    color: '#555555',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 40,
+    paddingHorizontal: 8,
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  retryText: {
+    fontSize: 15,
+    color: '#888888',
+    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
 });
