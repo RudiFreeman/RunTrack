@@ -8,6 +8,7 @@ import { SummaryParams } from '../types';
 export type TabParamList = {
   Home: undefined;
   History: undefined;
+  Stats: undefined;
 };
 
 // ─── Корневой стек (поверх табов) ────────────────────────────────────────────
@@ -30,6 +31,8 @@ export type HistoryNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'History'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
+
+export type StatsNavigationProp = BottomTabNavigationProp<TabParamList, 'Stats'>;
 
 export type SummaryRouteProp = RouteProp<RootStackParamList, 'Summary'>;
 export type SummaryNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Summary'>;
