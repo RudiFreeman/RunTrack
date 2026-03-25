@@ -1,0 +1,245 @@
+/**
+ * OTPVerifyScreen — экран ввода SMS-кода подтверждения.
+ * Пользователь получил SMS, вводит 6-значный код.
+ * После успешной верификации — переход на главный экран.
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
+import { authService } from '../services/authService';
+import { syncService } from '../services/syncService';
+import { getAllRuns } from '../services/storageService';
+import { RootStackParamList } from '../navigation/types';
+
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'OTPVerify'>;
+  route: RouteProp<RootStackParamList, 'OTPVerify'>;
+};
+
+/** Секунды до повторной отправки кода */
+const RESEND_TIMEOUT = 60;
+
+export default function OTPVerifyScreen({ navigation, route }: Props) {
+  const { phone } = route.params;
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(RESEND_TIMEOUT);
+  const inputRef = useRef<TextInput>(null);
+
+  // Таймер обратного отсчёта до повторной отправки
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const id = setTimeout(() => setResendTimer(t => t - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendTimer]);
+
+  // Автоматически верифицировать, когда введены все 6 цифр
+  useEffect(() => {
+    if (otp.length === 6) {
+      void handleVerify();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
+
+  async function handleVerify(): Promise<void> {
+    if (otp.length !== 6) {
+      Alert.alert('Ошибка', 'Код состоит из 6 цифр');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authService.verifyOTP(phone, otp);
+
+      // После входа — загружаем облачные данные и мёрджим с локальными
+      try {
+        const [localRuns, cloudRuns] = await Promise.all([
+          getAllRuns(),
+          syncService.downloadRuns(),
+        ]);
+        const user = await authService.getUser();
+        if (user) {
+          // Синхронизируем локальные пробежки в облако
+          await syncService.pushLocalToCloud(localRuns, user.id);
+          // Мёрджим (облако имеет приоритет)
+          syncService.mergeRuns(localRuns, cloudRuns);
+        }
+      } catch {
+        // Синхронизация не критична — пользователь уже вошёл
+      }
+
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Неверный код';
+      Alert.alert('Неверный код', message);
+      setOtp('');
+      inputRef.current?.focus();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend(): Promise<void> {
+    setLoading(true);
+    try {
+      await authService.sendOTP(phone);
+      setResendTimer(RESEND_TIMEOUT);
+      setOtp('');
+      Alert.alert('Отправлено', 'Новый код отправлен на ' + phone);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Ошибка отправки';
+      Alert.alert('Ошибка', message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.inner}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Заголовок */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Введи код</Text>
+          <Text style={styles.subtitle}>
+            Мы отправили 6-значный код на номер
+          </Text>
+          <Text style={styles.phone}>{phone}</Text>
+        </View>
+
+        {/* Поле ввода OTP */}
+        <View style={styles.form}>
+          <TextInput
+            ref={inputRef}
+            style={styles.otpInput}
+            value={otp}
+            onChangeText={text => setOtp(text.replace(/\D/g, '').slice(0, 6))}
+            keyboardType="number-pad"
+            maxLength={6}
+            placeholder="------"
+            placeholderTextColor="#444444"
+            autoFocus
+            textAlign="center"
+            editable={!loading}
+          />
+
+          {loading && (
+            <ActivityIndicator
+              color="#00E5A0"
+              size="large"
+              style={styles.spinner}
+            />
+          )}
+        </View>
+
+        {/* Повторная отправка */}
+        {resendTimer > 0 ? (
+          <Text style={styles.resendTimer}>
+            Повторная отправка через {resendTimer} сек
+          </Text>
+        ) : (
+          <TouchableOpacity onPress={handleResend} disabled={loading}>
+            <Text style={styles.resendLink}>Отправить код повторно</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Назад */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backText}>← Изменить номер</Text>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0D0D0D',
+  },
+  inner: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    marginBottom: 40,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#888888',
+    textAlign: 'center',
+  },
+  phone: {
+    fontSize: 17,
+    color: '#00E5A0',
+    fontWeight: '600',
+    marginTop: 6,
+    letterSpacing: 1,
+  },
+  form: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  otpInput: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    width: '100%',
+    paddingVertical: 20,
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#00E5A0',
+    letterSpacing: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    marginBottom: 8,
+  },
+  spinner: {
+    marginTop: 16,
+  },
+  resendTimer: {
+    fontSize: 14,
+    color: '#555555',
+    marginBottom: 24,
+  },
+  resendLink: {
+    fontSize: 15,
+    color: '#00E5A0',
+    textDecorationLine: 'underline',
+    marginBottom: 24,
+  },
+  backButton: {
+    paddingVertical: 12,
+  },
+  backText: {
+    fontSize: 15,
+    color: '#888888',
+  },
+});
