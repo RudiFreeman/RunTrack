@@ -105,7 +105,7 @@ export function SummaryScreen() {
     try {
       const run: SavedRun = {
         id: Date.now().toString(),
-        date: new Date().toISOString(),
+        date: runDate ?? new Date().toISOString(),
         distance,
         duration,
         avgPace,

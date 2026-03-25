@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,10 +30,14 @@ export function HomeScreen() {
   const isRunning = status === 'running';
   const isActive = status === 'running' || status === 'paused';
 
+  // Фиксируем момент начала пробежки, чтобы дата в истории совпадала со стартом
+  const startTimeRef = useRef<number>(0);
+
   const handleStart = useCallback(async () => {
     // Сначала проверяем разрешение — если отказано, таймер не запускаем
     const granted = await gps.requestPermission();
     if (!granted) return;
+    startTimeRef.current = Date.now();
     start();
     await gps.startTracking();
   }, [start, gps]);
@@ -64,6 +68,7 @@ export function HomeScreen() {
       duration: finalElapsed,
       distance: finalDistance,
       avgPace: finalAvgPace,
+      runDate: new Date(startTimeRef.current).toISOString(),
     });
   }, [gps, stop, reset, elapsed, navigation]);
 

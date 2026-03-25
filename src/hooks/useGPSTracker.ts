@@ -3,10 +3,17 @@ import * as Location from 'expo-location';
 import { Coordinate } from '../types';
 import { calculateDistance, calculateCurrentPace, calculateAveragePace } from '../services/locationService';
 
+// ─── Константы сглаживания темпа ─────────────────────────────────────────────
+
+const PACE_HISTORY_SIZE = 5;   // скользящее среднее по N последним значениям
+const PACE_MIN = 120;          // 2:00/км — быстрый спринт (быстрее = GPS-шум)
+const PACE_MAX = 1200;         // 20:00/км — быстрая ходьба (медленнее = стоим)
+const PACE_OUTLIER_FACTOR = 3; // если отклонение от среднего > 3x — игнорируем
+
 export interface GPSTrackerState {
   coordinates: Coordinate[];
   distance: number;      // метры
-  currentPace: number;   // секунды/км (из последних 2 точек)
+  currentPace: number;   // секунды/км (сглаженное скользящее среднее)
   averagePace: number;   // секунды/км (за весь забег)
   hasPermission: boolean | null;
   isTracking: boolean;
@@ -33,6 +40,9 @@ export function useGPSTracker(elapsedSeconds: number): GPSTrackerState & GPSTrac
   const coordsRef = useRef<Coordinate[]>([]);
   const elapsedRef = useRef(elapsedSeconds);
   elapsedRef.current = elapsedSeconds;
+
+  // История последних N значений сырого темпа для скользящего среднего
+  const paceHistoryRef = useRef<number[]>([]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     // Запрашиваем разрешение на геолокацию в фоне (для работы при заблокированном экране)
@@ -63,8 +73,36 @@ export function useGPSTracker(elapsedSeconds: number): GPSTrackerState & GPSTrac
     const totalDistance = calculateDistance(updatedCoords);
     setDistance(totalDistance);
 
-    const curPace = calculateCurrentPace(updatedCoords);
-    setCurrentPace(curPace);
+    // ─── Сглаживание темпа ───────────────────────────────────────────────────
+    const rawPace = calculateCurrentPace(updatedCoords);
+
+    // Шаг 1: фильтруем нереалистичные значения (стоим или GPS-прыжок на км вперёд)
+    if (rawPace >= PACE_MIN && rawPace <= PACE_MAX) {
+      const history = paceHistoryRef.current;
+
+      // Шаг 2: проверяем на выброс относительно накопленной истории
+      const isOutlier =
+        history.length >= 2 &&
+        (() => {
+          const avg = history.reduce((s, v) => s + v, 0) / history.length;
+          return rawPace > avg * PACE_OUTLIER_FACTOR || rawPace < avg / PACE_OUTLIER_FACTOR;
+        })();
+
+      if (!isOutlier) {
+        // Добавляем в историю, сохраняем только последние N значений
+        paceHistoryRef.current = [...history.slice(-(PACE_HISTORY_SIZE - 1)), rawPace];
+      }
+      // При выбросе — просто не обновляем историю, среднее остаётся прежним
+    }
+
+    // Шаг 3: отображаемый темп = среднее по истории (0 если история пустая)
+    const ph = paceHistoryRef.current;
+    const smoothedPace = ph.length > 0
+      ? ph.reduce((s, v) => s + v, 0) / ph.length
+      : 0;
+
+    setCurrentPace(smoothedPace);
+    // ─────────────────────────────────────────────────────────────────────────
 
     const avgPace = calculateAveragePace(totalDistance, elapsedRef.current);
     setAveragePace(avgPace);
@@ -75,6 +113,7 @@ export function useGPSTracker(elapsedSeconds: number): GPSTrackerState & GPSTrac
     if (!granted) return;
 
     coordsRef.current = [];
+    paceHistoryRef.current = [];
     setCoordinates([]);
     setDistance(0);
     setCurrentPace(0);
@@ -132,6 +171,7 @@ export function useGPSTracker(elapsedSeconds: number): GPSTrackerState & GPSTrac
       watchRef.current = null;
     }
     coordsRef.current = [];
+    paceHistoryRef.current = [];
     setCoordinates([]);
     setDistance(0);
     setCurrentPace(0);

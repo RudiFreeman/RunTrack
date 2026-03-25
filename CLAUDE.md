@@ -230,17 +230,19 @@ interface SummaryParams {
 | 🟡 Крэш | `useGPSTracker.ts:103` | `resumeTracking()` без проверки разрешения — крэш если юзер отозвал GPS в фоне | ✅ Исправлено |
 | 🟡 UX | `HomeScreen.tsx:31` | Таймер стартовал до получения разрешения GPS — при отказе таймер тикал без GPS | ✅ Исправлено |
 | 🟡 Мёртвый код | `App.tsx:170` | Дублирующий роут `"Tabs"` (нигде не используется, `"MainTabs"` — актуальный) | 🟡 Оставлен (backward compat) |
-| 🟡 UX | `locationService.ts:46` | Нет сглаживания GPS-шума в текущем темпе — может показывать 0:01/км при прыжках | 📋 Sprint 4 |
-| 🟢 DX | `supabase.ts:7` | Нет проверки env-переменных — криптичные ошибки при незаполненном `.env` | 📋 Sprint 4 |
-| 🟢 Чистота | `storageService.ts:72` | `replaceAllRuns` экспортирована но нигде не используется | 📋 Sprint 4 |
-| 🟢 Точность | `locationService.ts:125` | `splitStart` обновляется на GPS-точку, а не интерполированную 1км-отметку | 📋 Sprint 4 |
-| 🟢 UX | `SummaryScreen.tsx:107` | Дата забега = момент нажатия «Сохранить», не момент завершения бега | 📋 Sprint 4 |
+| 🟡 UX | `locationService.ts:46` | Нет сглаживания GPS-шума в текущем темпе — может показывать 0:01/км при прыжках | ✅ Исправлено |
+| 🟢 DX | `supabase.ts:7` | Нет проверки env-переменных — криптичные ошибки при незаполненном `.env` | ✅ Исправлено |
+| 🟢 Чистота | `storageService.ts:72` | `replaceAllRuns` экспортирована но нигде не используется | ✅ Исправлено |
+| 🟢 Точность | `locationService.ts:125` | `splitStart` обновляется на GPS-точку, а не интерполированную 1км-отметку | 🟢 Оставлено (минимальное влияние) |
+| 🟢 UX | `SummaryScreen.tsx:107` | Дата забега = момент нажатия «Сохранить», не момент завершения бега | ✅ Исправлено |
 
 #### Что исправлено в Sprint 4
 
-- **`src/services/storageService.ts`** — `loadAll()` теперь оборачивает `JSON.parse` в try/catch, возвращает `[]` при повреждённых данных
-- **`src/components/HomeScreen.tsx`** — `handleStart` сначала проверяет GPS-разрешение, только потом запускает таймер; `handleStop` пересчитывает дистанцию/темп напрямую из `coordsRef` (не из React state)
-- **`src/hooks/useGPSTracker.ts`** — `resumeTracking()` теперь вызывает `requestPermission()` перед запуском наблюдения за координатами
+- **`src/services/storageService.ts`** — `loadAll()` оборачивает `JSON.parse` в try/catch; удалена неиспользуемая `replaceAllRuns`
+- **`src/components/HomeScreen.tsx`** — `handleStart` проверяет разрешение перед стартом; `handleStop` пересчитывает дистанцию/темп из `coordsRef`; фиксируется `startTimeRef` (ISO дата старта → передаётся в Summary)
+- **`src/hooks/useGPSTracker.ts`** — `resumeTracking()` вызывает `requestPermission()`; скользящее среднее темпа: окно 5 точек, диапазон [120–1200 сек/км], фильтр выбросов ×3
+- **`src/config/supabase.ts`** — `console.error` с инструкцией если env-переменные не заданы
+- **`src/screens/SummaryScreen.tsx`** — дата забега берётся из `runDate` (момент старта), а не `new Date()` при сохранении
 
 ---
 
