@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -26,6 +27,7 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 const Tab = createBottomTabNavigator<TabParamList>();
 
 function TabNavigator() {
+  const { t } = useTranslation();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -51,7 +53,7 @@ function TabNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Бег',
+          tabBarLabel: t('nav.run'),
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏃" focused={focused} />,
         }}
       />
@@ -59,7 +61,7 @@ function TabNavigator() {
         name="History"
         component={HistoryScreen}
         options={{
-          tabBarLabel: 'История',
+          tabBarLabel: t('nav.history'),
           tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
         }}
       />
@@ -67,7 +69,7 @@ function TabNavigator() {
         name="Stats"
         component={StatsScreen}
         options={{
-          tabBarLabel: 'Статистика',
+          tabBarLabel: t('nav.stats'),
           tabBarIcon: ({ focused }) => <TabIcon emoji="📈" focused={focused} />,
         }}
       />

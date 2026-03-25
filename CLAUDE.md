@@ -135,29 +135,37 @@ interface SummaryParams {
 
 ---
 
-## Sprint 3 — В работе
+## Sprint 3 — ЗАВЕРШЁН ✅
 
-### Supabase Auth + Sync (в работе)
+### Supabase Auth + Sync
 - [x] `@supabase/supabase-js` установлен
 - [x] `src/config/supabase.ts` — клиент с AsyncStorage адаптером
-- [x] `src/services/authService.ts` — вход по телефону (OTP), выход, getUser
+- [x] `src/services/authService.ts` — Magic Link вход (sendMagicLink / signOut)
 - [x] `src/services/syncService.ts` — upload/download/delete/merge пробежек
-- [x] `src/screens/AuthScreen.tsx` — экран ввода номера телефона
-- [x] `src/screens/OTPVerifyScreen.tsx` — экран ввода 6-значного кода
-- [x] `supabase/migrations/001_create_runs_table.sql` — SQL миграция (запустить в Supabase Dashboard)
-- [x] `storageService.ts` — обновлён: saveRun/deleteRun синхронизируют с облаком если авторизован
-- [x] `App.tsx` — проверка сессии при старте, маршрутизация Auth/MainTabs
+- [x] `src/screens/AuthScreen.tsx` — email + «Проверьте почту»
+- [x] `supabase/migrations/001_create_runs_table.sql` — SQL миграция с RLS
+- [x] `storageService.ts` — saveRun/deleteRun синхронизируют с облаком
+- [x] `App.tsx` — проверка сессии при старте, deep link обработка
+- [x] `app.json` — scheme: "runtrack" для deep links
 - [x] `.env.example` — шаблон переменных окружения
 
-### Ещё в Sprint 3
-- [ ] **Шеринг в Telegram** — карточка забега (изображение с метриками)
-- [ ] **Push-уведомления** — напоминания о тренировках (`expo-notifications`)
-- [ ] **Цели и план тренировок** — недельный план, прогресс к цели
+### Шеринг
+- [x] `react-native-view-shot` + `expo-sharing` установлены
+- [x] `src/components/ShareCard.tsx` — карточка 360×480px (дистанция, время, темп, брендинг)
+- [x] `SummaryScreen.tsx` — кнопка «Поделиться» снимает скриншот ShareCard → нативный диалог
+
+### i18n — русская локализация
+- [x] `i18next` + `react-i18next` установлены
+- [x] `src/i18n/ru.json` — все строки (навигация, кнопки, экраны, ошибки)
+- [x] `src/i18n/index.ts` — конфигурация i18next (синхронная, ru по умолчанию)
+- [x] `index.ts` — импорт i18n до рендера
+- [x] Все компоненты переведены на `t('key')`: App, HomeScreen, StartButton,
+       HistoryScreen, StatsScreen, SummaryScreen, AuthScreen
 
 ### Как активировать Supabase
 1. Создать проект на supabase.com (регион Frankfurt)
 2. Запустить `supabase/migrations/001_create_runs_table.sql` в SQL Editor
-3. Authentication → Providers → Phone → включить + настроить Twilio (или использовать Email)
+3. Authentication → URL Configuration → добавить `runtrack://` в Redirect URLs
 4. Скопировать URL и anon key из Settings → API
 5. Создать файл `.env` в корне:
    ```
@@ -194,9 +202,12 @@ interface SummaryParams {
 ```
 
 Добавлено в Sprint 3:
-- `@supabase/supabase-js` ^2.x — облачная БД и авторизация (установлено)
+- `@supabase/supabase-js` ^2.x — облачная БД и авторизация
+- `react-native-view-shot` — захват скриншота компонента
+- `expo-sharing` — нативный диалог шеринга
+- `i18next` + `react-i18next` — русская локализация
 
-Планируется:
+Планируется в Sprint 4:
 - `expo-notifications` — push-уведомления
 
 ---

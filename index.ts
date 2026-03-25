@@ -1,5 +1,8 @@
 import { registerRootComponent } from 'expo';
 
+// Инициализация i18n должна быть до рендера любого компонента
+import './src/i18n';
+
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

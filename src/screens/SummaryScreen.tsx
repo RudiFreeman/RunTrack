@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polyline } from 'react-native-maps';
+import { useTranslation } from 'react-i18next';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -36,7 +37,7 @@ function StatBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SplitRow({ split, isLast }: { split: Split; isLast: boolean }) {
+function SplitRow({ split, isLast, timeLabel }: { split: Split; isLast: boolean; timeLabel: string }) {
   return (
     <View style={[styles.splitRow, isLast && styles.splitRowLast]}>
       <Text style={styles.splitKm}>{split.km} км</Text>
@@ -49,6 +50,7 @@ function SplitRow({ split, isLast }: { split: Split; isLast: boolean }) {
 // ─── Главный экран ────────────────────────────────────────────────────────────
 
 export function SummaryScreen() {
+  const { t } = useTranslation();
   const route = useRoute<SummaryRouteProp>();
   const navigation = useNavigation<SummaryNavigationProp>();
   const {
@@ -64,8 +66,6 @@ export function SummaryScreen() {
 
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
-
-  // ref на ShareCard для захвата скриншота
   const shareCardRef = useRef<View>(null);
 
   const splits = useMemo(
@@ -114,43 +114,41 @@ export function SummaryScreen() {
         coordinates,
       };
       await saveRun(run);
-      Alert.alert('Сохранено', 'Пробежка сохранена!', [
-        { text: 'OK', onPress: () => navigation.navigate('MainTabs') },
+      Alert.alert(t('summary.saved_title'), t('summary.saved_body'), [
+        { text: t('common.ok'), onPress: () => navigation.navigate('MainTabs') },
       ]);
     } catch {
-      Alert.alert('Ошибка', 'Не удалось сохранить пробежку.');
+      Alert.alert(t('common.error'), t('summary.error_save'));
     } finally {
       setSaving(false);
     }
   };
 
-  // ─── Шеринг — скриншот ShareCard → нативный диалог ──────────────────────────
+  // ─── Шеринг ──────────────────────────────────────────────────────────────────
 
   const handleShare = async () => {
     if (!shareCardRef.current) return;
     setSharing(true);
     try {
-      // Захватываем карточку как PNG
       const uri = await captureRef(shareCardRef, {
         format: 'png',
         quality: 1,
         result: 'tmpfile',
       });
 
-      // Проверяем доступность Sharing (на Expo Go всегда доступен)
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert('Шеринг недоступен', 'Функция шеринга недоступна на этом устройстве');
+        Alert.alert(t('summary.share_unavailable_title'), t('summary.share_unavailable_body'));
         return;
       }
 
       await Sharing.shareAsync(uri, {
         mimeType: 'image/png',
-        dialogTitle: 'Поделиться пробежкой',
-        UTI: 'public.png', // iOS
+        dialogTitle: t('summary.share_dialog_title'),
+        UTI: 'public.png',
       });
-    } catch (err) {
-      Alert.alert('Ошибка', 'Не удалось создать карточку');
+    } catch {
+      Alert.alert(t('common.error'), t('summary.error_share'));
     } finally {
       setSharing(false);
     }
@@ -160,10 +158,7 @@ export function SummaryScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/*
-        ShareCard рендерится вне экрана (opacity: 0).
-        React Native View Shot захватит её в captureRef().
-      */}
+      {/* ShareCard рендерится вне экрана для captureRef */}
       <View style={styles.offscreen} pointerEvents="none">
         <ShareCard
           ref={shareCardRef}
@@ -180,20 +175,18 @@ export function SummaryScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Кнопка назад */}
         {viewOnly && (
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>← Назад</Text>
+            <Text style={styles.backBtnText}>{t('summary.back')}</Text>
           </TouchableOpacity>
         )}
 
-        {/* Заголовок */}
         <Text style={styles.title}>
-          {viewOnly ? 'Пробежка' : 'Пробежка завершена'}
+          {viewOnly ? t('summary.title_view') : t('summary.title_new')}
         </Text>
         <Text style={styles.subtitle}>{displayDate}</Text>
 
-        {/* Карта маршрута */}
+        {/* Карта */}
         <View style={styles.mapContainer}>
           {mapRegion && coordinates.length > 1 ? (
             <MapView
@@ -207,10 +200,7 @@ export function SummaryScreen() {
               userInterfaceStyle="dark"
             >
               <Polyline
-                coordinates={coordinates.map((c) => ({
-                  latitude: c.latitude,
-                  longitude: c.longitude,
-                }))}
+                coordinates={coordinates.map((c) => ({ latitude: c.latitude, longitude: c.longitude }))}
                 strokeColor="#00E5A0"
                 strokeWidth={3}
               />
@@ -218,9 +208,7 @@ export function SummaryScreen() {
           ) : (
             <View style={styles.mapPlaceholder}>
               <Text style={styles.mapPlaceholderText}>
-                {coordinates.length < 2
-                  ? 'Недостаточно GPS-точек для отображения маршрута'
-                  : 'Загрузка карты…'}
+                {coordinates.length < 2 ? t('summary.no_gps') : t('summary.map_loading')}
               </Text>
             </View>
           )}
@@ -228,28 +216,33 @@ export function SummaryScreen() {
 
         {/* Сетка 2×2 */}
         <View style={styles.grid}>
-          <StatBox label="ДИСТАНЦИЯ" value={formatDistance(distance)} />
-          <StatBox label="ВРЕМЯ" value={formatDuration(duration)} />
-          <StatBox label="СРЕДНИЙ ТЕМП" value={formatPace(avgPace)} />
-          <StatBox label="КАЛОРИИ" value={`${calories} ккал`} />
+          <StatBox label={t('summary.distance')} value={formatDistance(distance)} />
+          <StatBox label={t('summary.time')} value={formatDuration(duration)} />
+          <StatBox label={t('summary.avg_pace')} value={formatPace(avgPace)} />
+          <StatBox label={t('summary.calories')} value={`${calories} ккал`} />
         </View>
 
-        {/* Сплиты по км */}
+        {/* Сплиты */}
         {splits.length > 0 && (
           <View style={styles.splitsBlock}>
-            <Text style={styles.sectionTitle}>Сплиты</Text>
+            <Text style={styles.sectionTitle}>{t('summary.splits_title')}</Text>
             <View style={styles.splitsHeader}>
-              <Text style={styles.splitsHeaderText}>КМ</Text>
-              <Text style={styles.splitsHeaderText}>ТЕМП</Text>
-              <Text style={styles.splitsHeaderText}>ВРЕМЯ</Text>
+              <Text style={styles.splitsHeaderText}>{t('summary.splits_km')}</Text>
+              <Text style={styles.splitsHeaderText}>{t('summary.splits_pace')}</Text>
+              <Text style={styles.splitsHeaderText}>{t('summary.splits_time')}</Text>
             </View>
             {splits.map((split, i) => (
-              <SplitRow key={split.km} split={split} isLast={i === splits.length - 1} />
+              <SplitRow
+                key={split.km}
+                split={split}
+                isLast={i === splits.length - 1}
+                timeLabel={t('summary.splits_time')}
+              />
             ))}
           </View>
         )}
 
-        {/* Кнопки */}
+        {/* Кнопки — новый забег */}
         {!viewOnly && (
           <>
             <View style={styles.actions}>
@@ -259,11 +252,10 @@ export function SummaryScreen() {
                 disabled={saving}
                 activeOpacity={0.8}
               >
-                {saving ? (
-                  <ActivityIndicator color="#0D0D0D" />
-                ) : (
-                  <Text style={styles.btnSaveText}>Сохранить</Text>
-                )}
+                {saving
+                  ? <ActivityIndicator color="#0D0D0D" />
+                  : <Text style={styles.btnSaveText}>{t('summary.btn_save')}</Text>
+                }
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -272,11 +264,10 @@ export function SummaryScreen() {
                 disabled={sharing}
                 activeOpacity={0.8}
               >
-                {sharing ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.btnShareText}>Поделиться</Text>
-                )}
+                {sharing
+                  ? <ActivityIndicator color="#FFFFFF" size="small" />
+                  : <Text style={styles.btnShareText}>{t('summary.btn_share')}</Text>
+                }
               </TouchableOpacity>
             </View>
 
@@ -285,11 +276,12 @@ export function SummaryScreen() {
               onPress={() => navigation.navigate('MainTabs')}
               activeOpacity={0.7}
             >
-              <Text style={styles.btnDiscardText}>Не сохранять</Text>
+              <Text style={styles.btnDiscardText}>{t('summary.btn_discard')}</Text>
             </TouchableOpacity>
           </>
         )}
 
+        {/* Кнопки — просмотр из истории */}
         {viewOnly && (
           <View style={styles.actions}>
             <TouchableOpacity
@@ -298,11 +290,10 @@ export function SummaryScreen() {
               disabled={sharing}
               activeOpacity={0.8}
             >
-              {sharing ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.btnShareText}>Поделиться</Text>
-              )}
+              {sharing
+                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                : <Text style={styles.btnShareText}>{t('summary.btn_share')}</Text>
+              }
             </TouchableOpacity>
           </View>
         )}
@@ -314,81 +305,32 @@ export function SummaryScreen() {
 // ─── Стили ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0D0D0D',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-
-  // Карточка шеринга рендерится вне экрана
-  offscreen: {
-    position: 'absolute',
-    top: 0,
-    left: -400,
-    opacity: 0,
-  },
+  safe: { flex: 1, backgroundColor: '#0D0D0D' },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
+  offscreen: { position: 'absolute', top: 0, left: -400, opacity: 0 },
 
   backBtn: { marginBottom: 8 },
   backBtnText: { color: '#00E5A0', fontSize: 14, fontWeight: '600' },
 
-  title: {
-    color: '#00E5A0',
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: '#666666',
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20,
-  },
+  title: { color: '#00E5A0', fontSize: 22, fontWeight: '700', letterSpacing: 1, textAlign: 'center' },
+  subtitle: { color: '#666666', fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 20 },
 
-  mapContainer: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 20,
-    height: 220,
-    backgroundColor: '#1A1A1A',
-  },
+  mapContainer: { borderRadius: 16, overflow: 'hidden', marginBottom: 20, height: 220, backgroundColor: '#1A1A1A' },
   map: { flex: 1 },
   mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   mapPlaceholderText: { color: '#555555', fontSize: 13, textAlign: 'center' },
 
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statBox: {
-    width: '47%',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'center',
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+  statBox: { width: '47%', backgroundColor: '#1A1A1A', borderRadius: 14, padding: 16, alignItems: 'center' },
   statValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '600', letterSpacing: 0.5 },
   statLabel: { color: '#888888', fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 4 },
 
   splitsBlock: { backgroundColor: '#1A1A1A', borderRadius: 14, padding: 16, marginBottom: 28 },
   sectionTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
   splitsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+    flexDirection: 'row', justifyContent: 'space-between',
+    marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#2A2A2A',
   },
   splitsHeaderText: { color: '#555555', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, flex: 1, textAlign: 'center' },
   splitRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#222222' },
