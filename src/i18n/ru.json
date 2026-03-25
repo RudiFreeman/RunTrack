@@ -1,0 +1,103 @@
+{
+  "nav": {
+    "run": "Бег",
+    "history": "История",
+    "stats": "Статистика"
+  },
+
+  "home": {
+    "status_idle": "Готов к пробежке",
+    "status_running": "Бегу...",
+    "status_paused": "На паузе",
+    "status_finished": "Пробежка завершена",
+    "timer_label": "ВРЕМЯ",
+    "distance": "ДИСТАНЦИЯ",
+    "pace": "ТЕМП",
+    "finish": "ЗАВЕРШИТЬ",
+    "btn_start": "СТАРТ",
+    "btn_pause": "ПАУЗА",
+    "btn_resume": "ПРОДОЛЖИТЬ"
+  },
+
+  "history": {
+    "title": "История",
+    "total_km": "ВСЕГО КМ",
+    "runs_count": "ЗАБЕГОВ",
+    "best_pace": "ЛУЧШИЙ ТЕМП",
+    "distance": "ДИСТАНЦИЯ",
+    "time": "ВРЕМЯ",
+    "pace": "ТЕМП",
+    "delete": "Удалить",
+    "delete_confirm_title": "Удалить пробежку?",
+    "delete_confirm_body": "Это действие нельзя отменить.",
+    "cancel": "Отмена",
+    "empty_line1": "Пока нет пробежек.",
+    "empty_line2": "Выходи бегать! 🏃"
+  },
+
+  "stats": {
+    "title": "Статистика",
+    "week": "Неделя",
+    "month": "Месяц",
+    "all_time": "Всё время",
+    "chart_distance": "Дистанция по дням (км)",
+    "chart_pace": "Темп по забегам (мин/км)",
+    "records_title": "Личные рекорды",
+    "records_best_pace": "Лучший темп",
+    "records_longest": "Длинный забег",
+    "records_weekly": "Забегов за неделю",
+    "need_more_runs": "Нужно минимум {{count}} забега для графиков",
+    "no_runs_period": "В этом периоде нет пробежек",
+    "runs_progress": "Пока {{current}} из {{total}}",
+    "empty_records": "Пока нет пробежек. Выходи бегать! 🏃"
+  },
+
+  "summary": {
+    "title_new": "Пробежка завершена",
+    "title_view": "Пробежка",
+    "back": "← Назад",
+    "distance": "ДИСТАНЦИЯ",
+    "time": "ВРЕМЯ",
+    "avg_pace": "СРЕДНИЙ ТЕМП",
+    "calories": "КАЛОРИИ",
+    "splits_title": "Сплиты",
+    "splits_km": "КМ",
+    "splits_pace": "ТЕМП",
+    "splits_time": "ВРЕМЯ",
+    "btn_save": "Сохранить",
+    "btn_share": "Поделиться",
+    "btn_discard": "Не сохранять",
+    "saved_title": "Сохранено",
+    "saved_body": "Пробежка сохранена!",
+    "error_save": "Не удалось сохранить пробежку.",
+    "error_share": "Не удалось создать карточку",
+    "share_unavailable_title": "Шеринг недоступен",
+    "share_unavailable_body": "Функция шеринга недоступна на этом устройстве",
+    "share_dialog_title": "Поделиться пробежкой",
+    "no_gps": "Недостаточно GPS-точек для отображения маршрута",
+    "map_loading": "Загрузка карты…"
+  },
+
+  "auth": {
+    "title": "Вход в аккаунт",
+    "subtitle": "Введи email — пришлём ссылку для входа.\nПароль не нужен.",
+    "email_label": "Email",
+    "email_placeholder": "you@example.com",
+    "btn_get_link": "Получить ссылку",
+    "note": "Вход синхронизирует пробежки между устройствами.\nПриложение работает и без входа — данные хранятся локально.",
+    "btn_skip": "Продолжить без входа",
+    "error_invalid_email": "Введи корректный email",
+    "sent_title": "Проверьте почту",
+    "sent_body": "Мы отправили ссылку для входа на",
+    "sent_hint": "Нажмите на кнопку в письме — приложение откроется автоматически.",
+    "btn_retry": "Изменить email или отправить снова"
+  },
+
+  "common": {
+    "error": "Ошибка",
+    "cancel": "Отмена",
+    "ok": "OK",
+    "no_internet": "Нет подключения к интернету",
+    "error_save": "Ошибка сохранения"
+  }
+}

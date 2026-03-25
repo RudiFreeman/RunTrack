@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { RunStatus } from '../types';
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function StartButton({ status, onStart, onPause, onResume }: Props) {
+  const { t } = useTranslation();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -33,13 +35,12 @@ export function StartButton({ status, onStart, onPause, onResume }: Props) {
 
   const label =
     status === 'idle' || status === 'finished'
-      ? 'СТАРТ'
+      ? t('home.btn_start')
       : status === 'running'
-      ? 'ПАУЗА'
-      : 'ПРОДОЛЖИТЬ';
+      ? t('home.btn_pause')
+      : t('home.btn_resume');
 
-  const bgColor =
-    status === 'running' ? '#FF6B35' : '#00E5A0';
+  const bgColor = status === 'running' ? '#FF6B35' : '#00E5A0';
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>

@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { useRunTimer } from '../hooks/useRunTimer';
 import { useGPSTracker } from '../hooks/useGPSTracker';
@@ -19,14 +20,13 @@ import {
 } from '../services/locationService';
 
 export function HomeScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<HomeNavigationProp>();
   const { status, elapsed, start, pause, resume, stop, reset } = useRunTimer();
   const gps = useGPSTracker(elapsed);
 
   const isRunning = status === 'running';
   const isActive = status === 'running' || status === 'paused';
-
-  // ─── Обработчики кнопок ──────────────────────────────────────────────────
 
   const handleStart = useCallback(async () => {
     start();
@@ -61,39 +61,32 @@ export function HomeScreen() {
     });
   }, [gps, stop, reset, elapsed, navigation]);
 
-  // ─── Отображаемые данные ─────────────────────────────────────────────────
-
-  // Во время бега — текущий темп, на паузе — средний
   const displayPace = isRunning && gps.currentPace > 0
     ? gps.currentPace
     : gps.averagePace;
 
   const statusText =
-    status === 'idle'    ? 'Готов к пробежке' :
-    status === 'running' ? 'Бегу...' :
-    status === 'paused'  ? 'На паузе' :
-                           'Пробежка завершена';
+    status === 'idle'    ? t('home.status_idle') :
+    status === 'running' ? t('home.status_running') :
+    status === 'paused'  ? t('home.status_paused') :
+                           t('home.status_finished');
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        {/* Заголовок */}
         <Text style={styles.appName}>RunTrack</Text>
         <Text style={styles.subtitle}>{statusText}</Text>
 
-        {/* Таймер */}
         <View style={styles.timerBlock}>
           <Text style={styles.timer}>{formatDuration(elapsed)}</Text>
-          <Text style={styles.timerLabel}>ВРЕМЯ</Text>
+          <Text style={styles.timerLabel}>{t('home.timer_label')}</Text>
         </View>
 
-        {/* Статистика */}
         <View style={styles.statsRow}>
-          <StatCard label="ДИСТАНЦИЯ" value={formatDistance(gps.distance)} />
-          <StatCard label="ТЕМП" value={formatPace(displayPace)} />
+          <StatCard label={t('home.distance')} value={formatDistance(gps.distance)} />
+          <StatCard label={t('home.pace')} value={formatPace(displayPace)} />
         </View>
 
-        {/* Главная кнопка */}
         <View style={styles.buttonArea}>
           <StartButton
             status={status}
@@ -103,14 +96,13 @@ export function HomeScreen() {
           />
         </View>
 
-        {/* Кнопка ЗАВЕРШИТЬ (только во время активной пробежки) */}
         {isActive && (
           <TouchableOpacity
             style={styles.stopBtn}
             onPress={handleStop}
             activeOpacity={0.7}
           >
-            <Text style={styles.stopBtnText}>ЗАВЕРШИТЬ</Text>
+            <Text style={styles.stopBtnText}>{t('home.finish')}</Text>
           </TouchableOpacity>
         )}
       </View>
