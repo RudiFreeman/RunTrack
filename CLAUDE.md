@@ -279,6 +279,7 @@ interface SummaryParams {
   2. `package.json` → поле `"version"`
   3. `CHANGELOG.md` → добавить раздел `## [x.y.z]`
   4. `README.md` → значок `![Version](...)`
+- Актуальный роадмап ведётся в ROADMAP.md
 
 ---
 
